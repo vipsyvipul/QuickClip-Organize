@@ -28,9 +28,15 @@ DEV/
 
 **View type constant:** `'quickclip-organizer'` — single registered view (`VIEW_MAIN` in `QuickClipView.ts`).
 
-**Plugin settings** (persisted via `loadData`/`saveData`):
+**Plugin settings** (persisted via `loadData`/`saveData` into Obsidian's `data.json`):
 - `showOrganized: boolean` — shared across all tabs, default `false`
 - `activeTab: 'all' | 'domain' | 'type'` — last active tab, default `'all'`
+- `visibleColumns: string[]` — optional columns shown; always-visible columns not listed; default `['type', 'last_clipped']`
+- `columnOrder: string[]` — ordered list of ColumnKeys after drag reorder; empty = canonical order
+- `filterType: string` — active Portent type filter, or `''`
+- `filterProgress: string` — `'raw' | 'planning' | 'organized' | ''`
+- `filterContentType: string` — content type filter, or `''`
+- `filterDate: string` — `'today' | '7d' | '30d' | '3m' | ''`
 
 ---
 
@@ -52,19 +58,17 @@ Registers a native Obsidian `ItemView` (like Graph view or Backlinks — not a `
 
 Each row is a saved **page** (URL), not an individual clip. One row per URL, regardless of how many highlights were saved from it.
 
-| Title | Domain | Type | Tags | Saved | Organized | Belongs To |
-|---|---|---|---|---|---|---|
-| [[Article A]] | medium.com | Note ▼ | #pkm | 20 May | ☐ | |
-| [[YouTube: Talk]] | youtube.com | Note ▼ | #design | 19 May | ☑ | [[Project X]] |
-| [[Reddit Thread]] | reddit.com | Topic ▼ | #ai | 18 May | ☐ | |
+Default visible columns: Title · Type · Last Saved · Belongs To · Related To · Organized · Progress
 
 ### Editable fields (inline, no save button)
 
 | Field | UI element | Writes to |
 |---|---|---|
 | Type | `<select>` dropdown — 8 Portent types | `clipsHistory.json` or frontmatter |
-| Organized | `<input disabled>` checkbox — display only, auto-computed from `type` | — |
 | Belongs To | Text input, accepts `[[wikilink]]`, debounced 500ms | `clipsHistory.json` or frontmatter |
+| Related To | Text input, accepts comma-separated `[[wikilinks]]`, debounced 500ms | `clipsHistory.json` or frontmatter |
+| Organized | Checkbox — display only, disabled; auto-computed from type + belongs_to | — |
+| Progress | 3-dot indicator (grey/amber/green) — display only, auto-computed | — |
 | Tags | Read-only chips (editing in v1.1) | — |
 
 **Title click behaviour:**
@@ -86,6 +90,13 @@ Single view with three tabs in a persistent toolbar:
 - Tab pills use `--interactive-accent` / `--text-on-accent` Obsidian variables
 - **Show organized** toggle — shared across all tabs, persisted via `plugin.settings.showOrganized`
 - **Collapse all** checkbox — visible on By Domain and By Type only; auto-syncs with actual collapsed state (checked when all groups are collapsed); resets on tab switch; groups use inline `tr.style.display` toggling within a single table
+- **Columns ▾** button — floating panel listing all non-always-visible columns with checkboxes; selection persisted in `visibleColumns`; columns with `alwaysVisible: true` not listed (always shown)
+
+**Filter bar** (rendered once below toolbar, never re-rendered):
+- 4 selects: Type (all Portent types), Progress (raw/planning/organized), Content (dynamic from entries), Date (today/7d/30d/3m)
+- All filters persisted in settings, AND logic applied before tab grouping
+- Active filter select gets accent border class `qc-filter-select--active`
+- "✕ Clear" button visible only when any filter is active
 
 **Tab switching** re-renders only the content area — no data reload, no view recreation. Data reloads only when `clipsHistory.json` changes or a Portent-tagged note's frontmatter is saved.
 
@@ -104,9 +115,21 @@ The 8 types split into two groups:
 Most web clips are ENTP. Default type on first clip from any URL: **Note**.
 
 Portent lifecycle states stored per URL:
-- `organized: false` — raw capture, visible when "Show organized" is off
-- `organized: true` — processed, hidden when "Show organized" is off
+- `organized: false` — raw capture or in-progress, visible when "Show organized" is off
+- `organized: true` — placed (has `belongs_to`), hidden when "Show organized" is off
 - `archived: true` — completed/inactive, never shown in the dashboard
+
+**Three-state progress indicator** (UI only, derived at render time — no stored field):
+
+| State | Condition | Display |
+|---|---|---|
+| Raw | `type` empty OR both `belongs_to` and `related_to` empty | grey dot only |
+| Planning | `type` non-empty, `related_to` non-empty, `belongs_to` empty | grey + amber dots |
+| Organized | `type` non-empty AND `belongs_to` non-empty | all three dots |
+
+`related_to` is a lateral connection (peer links). Its presence signals active research — the clip connects to known things but hasn't found its home yet. It does not flip `organized`. The dashboard shows both: a disabled `Organized` checkbox (boolean) and a `Progress` dots indicator (3-state).
+
+Type must be explicitly set (non-empty) for any progress above Raw — a clip with `related_to` but no `type` stays Raw.
 
 ---
 
@@ -158,20 +181,33 @@ Location: `.quickclip/clipsHistory.json` in the active Obsidian vault. Written b
 
 **Fields the plugin owns (reads + writes):**
 - `type` — Portent type dropdown
-- `organized` — auto-computed: flips `true` when user sets `type`; never set manually
+- `organized` — auto-computed: flips `true` when `belongs_to` is non-empty; never set manually
 - `archived` — explicit user action
-- `belongs_to` — wikilink input
-- `related_to` — wikilink input
+- `belongs_to` — wikilink input; filling this flips `organized` true
+- `related_to` — wikilink input; signals active research (Planning state in UI) but does not affect `organized`
 
-**Fields the plugin reads only (extension writes these):**
+**Fields the plugin reads only from JSON (extension writes these):**
 - `title`, `content_type`, `domain`, `first_clipped`, `last_clipped`, `clips[]`
 - `type` is also set by the extension at capture (inferred from URL/content_type) so Inbox has a reasonable default — same field the user edits, no separate field needed.
+
+**All of these fields are also readable from frontmatter** — any `.md` file can set `url`, `domain`, `content_type`, `first_clipped`, `last_clipped` in its frontmatter and the plugin will pick them up. These are not editable in the plugin UI (read-only from frontmatter). All frontmatter keys are normalized to lowercase before lookup.
 
 ### `organized` auto-computation
 
 ```typescript
-// After every type edit:
-entry.organized = !!entry.type  // true when user has consciously set a type
+// After every type or belongs_to edit — BOTH must be non-empty:
+const organized = !!(entry.type && entry.belongs_to)
+```
+
+"Organized" means the clip has a type AND a home. Setting only a type is capture. Setting only `belongs_to` with no type is not yet complete.
+
+The **Progress** state is derived at render time only (never stored):
+```typescript
+function getProgressState(entry: ClipEntry): 'raw' | 'planning' | 'organized' {
+    if (entry.type && entry.belongs_to) return 'organized'
+    if (entry.type && entry.related_to?.length) return 'planning'
+    return 'raw'
+}
 ```
 
 When `organized` flips `true` and the toggle is off, the row disappears from view immediately on the next re-render. `archived: true` entries never appear regardless of toggle.
@@ -183,6 +219,41 @@ Plugin scans the entire vault for any `.md` file with `type` frontmatter set to 
 - Any note the user has manually tagged with a Portent type (extension not required)
 
 If a JSON entry has a `path` pointing to a vault file, frontmatter is authoritative for classification fields (merge rule: JSON for metadata, frontmatter for Portent fields when file exists).
+
+---
+
+## Column System
+
+All columns except Title are defined in `ALL_COLUMNS: ColumnDef[]` in `QuickClipView.ts`.
+
+```typescript
+type ColumnKey =
+    | 'domain' | 'type' | 'tags' | 'last_clipped' | 'clip_count' | 'content_type' | 'first_clipped' | 'url' | 'source'
+    | 'belongs_to' | 'related_to' | 'organized' | 'progress'
+interface ColumnDef { key: ColumnKey; label: string; sortKey?: SortKey; alwaysVisible?: boolean }
+```
+
+| Key | Label | Always visible | Sortable |
+|---|---|---|---|
+| `domain` | Domain | — | ✓ |
+| `type` | Type | — | ✓ |
+| `tags` | Tags | — | — |
+| `last_clipped` | Last Saved | — | ✓ |
+| `clip_count` | Clips | — | ✓ |
+| `content_type` | Content Type | — | ✓ |
+| `first_clipped` | First Saved | — | ✓ |
+| `url` | URL | — | — |
+| `source` | Source | — | — |
+| `belongs_to` | Belongs To | ✓ | — |
+| `related_to` | Related To | ✓ | — |
+| `organized` | Organized | ✓ | ✓ |
+| `progress` | Progress | ✓ | — |
+
+**Visibility:** `alwaysVisible` columns always render. Others are hidden unless their key is in `settings.visibleColumns`. The Columns picker only shows non-`alwaysVisible` columns.
+
+**Ordering:** `getOrderedColumns()` sorts `ALL_COLUMNS` by `settings.columnOrder` (list of ColumnKeys). Columns not in the order list sort to the end. Title is never in the column order — it's always first.
+
+**Drag-drop reordering:** Every column header (including always-visible ones) is draggable via HTML5 drag API. On drop, left/right insert position determined by mouse vs column midpoint. Left border = `qc-col-drag-before`, right border = `qc-col-drag-after`. New order saved to `settings.columnOrder` on drop.
 
 ---
 
