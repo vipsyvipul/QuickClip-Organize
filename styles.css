@@ -114,10 +114,6 @@
     transition: background 80ms;
 }
 
-.qc-row:nth-child(even) {
-    background: var(--background-secondary);
-}
-
 .qc-row:hover {
     background: var(--background-modifier-hover);
 }
