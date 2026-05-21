@@ -19,18 +19,18 @@ export async function loadFrontmatterEntries(app: App): Promise<ClipEntry[]> {
         else if (typeof rawTags === 'string') tags.push(rawTags)
 
         entries.push({
-            url: '',
+            url: fm.url || '',
             title: fm.title || file.basename,
-            domain: '',
-            content_type: '',
+            domain: fm.domain || '',
+            content_type: fm.content_type || '',
             type: type as PortentType,
             organized: fm.organized ?? false,
             archived: fm.archived ?? false,
             belongs_to: fm.belongs_to || '',
             related_to: Array.isArray(fm.related_to) ? fm.related_to : [],
             tags,
-            first_clipped: fm.date || '',
-            last_clipped: fm.date || '',
+            first_clipped: fm.first_clipped || fm.date || '',
+            last_clipped: fm.last_clipped || fm.date || '',
             clip_count: 0,
             source: 'frontmatter',
             file_path: file.path,

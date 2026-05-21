@@ -101,6 +101,11 @@ function mergeEntries(jsonEntries: ClipEntry[], fmEntries: ClipEntry[], app: App
             archived: fm.archived ?? entry.archived,
             belongs_to: fm.belongs_to || entry.belongs_to,
             related_to: fm.related_to || entry.related_to,
+            url: fm.url || entry.url,
+            domain: fm.domain || entry.domain,
+            content_type: fm.content_type || entry.content_type,
+            first_clipped: fm.first_clipped || entry.first_clipped,
+            last_clipped: fm.last_clipped || entry.last_clipped,
             source: 'both' as const,
         }
     })
