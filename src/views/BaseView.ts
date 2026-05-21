@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, TFile } from 'obsidian'
+import { ItemView, WorkspaceLeaf, TFile, TAbstractFile } from 'obsidian'
 import QuickClipPlugin, { VIEW_INBOX, VIEW_ALL, VIEW_DOMAIN, VIEW_TYPE } from '../main'
 import { ClipEntry, PORTENT_TYPES, PortentType } from '../types'
 
@@ -16,6 +16,13 @@ export abstract class BaseView extends ItemView {
     getIcon() { return 'inbox' }
 
     async onOpen() {
+        this.registerEvent(
+            this.app.vault.on('modify', (file: TAbstractFile) => {
+                if (file instanceof TFile && file.path === '.quickclip/clipsHistory.json') {
+                    this.refresh()
+                }
+            })
+        )
         await this.refresh()
     }
 
@@ -26,7 +33,6 @@ export abstract class BaseView extends ItemView {
         const container = this.containerEl.children[1] as HTMLElement
         container.empty()
         container.addClass('qc-container')
-        this.renderToolbar(container)
         this.render(container, this.entries)
     }
 
