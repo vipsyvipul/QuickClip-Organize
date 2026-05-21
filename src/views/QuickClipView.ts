@@ -219,20 +219,36 @@ export class QuickClipView extends ItemView {
             e.dataTransfer!.effectAllowed = 'move'
             th.addClass('qc-col-dragging')
         })
-        th.addEventListener('dragend', () => th.removeClass('qc-col-dragging'))
-        th.addEventListener('dragover', (e) => { e.preventDefault(); th.addClass('qc-col-drag-over') })
-        th.addEventListener('dragleave', () => th.removeClass('qc-col-drag-over'))
+        const clearDragClasses = () => {
+            th.removeClass('qc-col-drag-before')
+            th.removeClass('qc-col-drag-after')
+            th.removeClass('qc-col-dragging')
+        }
+        th.addEventListener('dragend', clearDragClasses)
+        th.addEventListener('dragover', (e) => {
+            e.preventDefault()
+            const mid = th.getBoundingClientRect().left + th.offsetWidth / 2
+            th.removeClass('qc-col-drag-before')
+            th.removeClass('qc-col-drag-after')
+            th.addClass(e.clientX < mid ? 'qc-col-drag-before' : 'qc-col-drag-after')
+        })
+        th.addEventListener('dragleave', () => {
+            th.removeClass('qc-col-drag-before')
+            th.removeClass('qc-col-drag-after')
+        })
         th.addEventListener('drop', async (e) => {
             e.preventDefault()
-            th.removeClass('qc-col-drag-over')
+            const insertBefore = th.hasClass('qc-col-drag-before')
+            clearDragClasses()
             const fromKey = e.dataTransfer!.getData('text/plain') as ColumnKey
             if (!fromKey || fromKey === col.key) return
             const keys = this.getOrderedColumns().map(c => c.key)
             const fromIdx = keys.indexOf(fromKey)
-            const toIdx = keys.indexOf(col.key)
-            if (fromIdx === -1 || toIdx === -1) return
+            if (fromIdx === -1) return
             keys.splice(fromIdx, 1)
-            keys.splice(toIdx, 0, fromKey)
+            const toIdx = keys.indexOf(col.key)
+            if (toIdx === -1) return
+            keys.splice(insertBefore ? toIdx : toIdx + 1, 0, fromKey)
             this.plugin.settings.columnOrder = keys
             await this.plugin.saveSettings()
             this.rerenderContent()

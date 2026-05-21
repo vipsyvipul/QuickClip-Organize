@@ -315,9 +315,12 @@
     opacity: 0.4;
 }
 
-.qc-col-drag-over {
-    background: var(--background-modifier-hover);
+.qc-col-drag-before {
     border-left: 2px solid var(--interactive-accent);
+}
+
+.qc-col-drag-after {
+    border-right: 2px solid var(--interactive-accent);
 }
 
 .qc-col-picker-btn {
