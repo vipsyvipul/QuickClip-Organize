@@ -82,9 +82,14 @@ Single view with three tabs in a persistent toolbar:
 | By Domain | Rows grouped by cleaned domain name (see `cleanDomain`) |
 | By Type | Rows grouped by Portent type (PORT then ENTP order) |
 
-**"Show organized" toggle** is in the shared toolbar (default off). When off, organized entries are hidden. State is shared across all tabs and persists across plugin reloads via `plugin.settings.showOrganized`.
+**Toolbar controls** (rendered once in `onOpen`, never re-rendered):
+- Tab pills use `--interactive-accent` / `--text-on-accent` Obsidian variables
+- **Show organized** toggle — shared across all tabs, persisted via `plugin.settings.showOrganized`
+- **Collapse all** checkbox — visible on By Domain and By Type only; auto-syncs with actual collapsed state (checked when all groups are collapsed); resets on tab switch; groups use inline `tr.style.display` toggling within a single table
 
-**Tab switching** re-renders only the content area below the toolbar — no data reload, no view recreation. Data reloads only when `clipsHistory.json` changes on disk or a Portent-tagged note's frontmatter is saved.
+**Tab switching** re-renders only the content area — no data reload, no view recreation. Data reloads only when `clipsHistory.json` changes or a Portent-tagged note's frontmatter is saved.
+
+**Frontmatter keys are normalized to lowercase** before any field lookup — `type`, `Type`, `TYPE` all work. Applied in `FrontmatterStore`, `mergeEntries`, and the metadataCache watcher.
 
 ---
 
