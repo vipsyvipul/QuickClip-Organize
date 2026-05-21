@@ -8,12 +8,14 @@ interface PluginSettings {
     showOrganized: boolean
     activeTab: 'all' | 'domain' | 'type'
     visibleColumns: string[]
+    columnOrder: string[]
 }
 
 const DEFAULT_SETTINGS: PluginSettings = {
     showOrganized: false,
     activeTab: 'all',
     visibleColumns: ['type', 'last_clipped'],
+    columnOrder: [],
 }
 
 export default class QuickClipPlugin extends Plugin {

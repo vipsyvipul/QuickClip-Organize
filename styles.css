@@ -302,6 +302,24 @@
     position: relative;
 }
 
+/* ── Column drag-drop ── */
+.qc-col-draggable {
+    cursor: grab;
+}
+
+.qc-col-draggable:active {
+    cursor: grabbing;
+}
+
+.qc-col-dragging {
+    opacity: 0.4;
+}
+
+.qc-col-drag-over {
+    background: var(--background-modifier-hover);
+    border-left: 2px solid var(--interactive-accent);
+}
+
 .qc-col-picker-btn {
     background: none;
     border: 1px solid var(--background-modifier-border);
