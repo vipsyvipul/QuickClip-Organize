@@ -1,39 +1,32 @@
-import { App, Plugin, WorkspaceLeaf } from 'obsidian'
+import { App, Plugin } from 'obsidian'
 import { ClipEntry, PORTENT_TYPES, PortentType } from './types'
 import { loadJsonEntries, updateJsonEntry } from './data/ClipsStore'
 import { loadFrontmatterEntries, updateFrontmatterEntry } from './data/FrontmatterStore'
-import { InboxView } from './views/InboxView'
-import { AllClipsView } from './views/AllClipsView'
-import { ByDomainView } from './views/ByDomainView'
-import { ByTypeView } from './views/ByTypeView'
+import { QuickClipView, VIEW_MAIN } from './views/QuickClipView'
 
-export const VIEW_INBOX = 'quickclip-inbox'
-export const VIEW_ALL = 'quickclip-all'
-export const VIEW_DOMAIN = 'quickclip-by-domain'
-export const VIEW_TYPE = 'quickclip-by-type'
+interface PluginSettings {
+    showOrganized: boolean
+    activeTab: 'all' | 'domain' | 'type'
+}
+
+const DEFAULT_SETTINGS: PluginSettings = { showOrganized: false, activeTab: 'all' }
 
 export default class QuickClipPlugin extends Plugin {
+    settings: PluginSettings = { ...DEFAULT_SETTINGS }
+
     async onload() {
+        this.settings = Object.assign({ ...DEFAULT_SETTINGS }, await this.loadData())
         await this.bootstrap()
 
-        this.registerView(VIEW_INBOX, (leaf) => new InboxView(leaf, this))
-        this.registerView(VIEW_ALL, (leaf) => new AllClipsView(leaf, this))
-        this.registerView(VIEW_DOMAIN, (leaf) => new ByDomainView(leaf, this))
-        this.registerView(VIEW_TYPE, (leaf) => new ByTypeView(leaf, this))
+        this.registerView(VIEW_MAIN, (leaf) => new QuickClipView(leaf, this))
 
-        this.addRibbonIcon('inbox', 'QuickClip Organizer', () => this.activateView(VIEW_INBOX))
+        this.addRibbonIcon('list', 'QuickClip Organizer', () => this.activateView())
 
-        this.addCommand({ id: 'open-inbox', name: 'Open Inbox', callback: () => this.activateView(VIEW_INBOX) })
-        this.addCommand({ id: 'open-all', name: 'Open All Clips', callback: () => this.activateView(VIEW_ALL) })
-        this.addCommand({ id: 'open-by-domain', name: 'Open By Domain', callback: () => this.activateView(VIEW_DOMAIN) })
-        this.addCommand({ id: 'open-by-type', name: 'Open By Type', callback: () => this.activateView(VIEW_TYPE) })
+        this.addCommand({ id: 'open', name: 'Open QuickClip Organizer', callback: () => this.activateView() })
     }
 
     onunload() {
-        this.app.workspace.detachLeavesOfType(VIEW_INBOX)
-        this.app.workspace.detachLeavesOfType(VIEW_ALL)
-        this.app.workspace.detachLeavesOfType(VIEW_DOMAIN)
-        this.app.workspace.detachLeavesOfType(VIEW_TYPE)
+        this.app.workspace.detachLeavesOfType(VIEW_MAIN)
     }
 
     private async bootstrap() {
@@ -43,17 +36,17 @@ export default class QuickClipPlugin extends Plugin {
             await adapter.write('.quickclip/clipsHistory.json', '{}')
     }
 
-    async activateView(viewType: string) {
+    async saveSettings() {
+        await this.saveData(this.settings)
+    }
+
+    async activateView() {
         const { workspace } = this.app
-        const existing = workspace.getLeavesOfType(viewType)[0]
+        const existing = workspace.getLeavesOfType(VIEW_MAIN)[0]
         if (existing) { workspace.revealLeaf(existing); return }
 
-        // Reuse whichever plugin leaf is already open
-        const pluginViewTypes = [VIEW_INBOX, VIEW_ALL, VIEW_DOMAIN, VIEW_TYPE]
-        let leaf = pluginViewTypes.flatMap(t => workspace.getLeavesOfType(t))[0]
-            ?? workspace.getLeaf(false)
-
-        await leaf.setViewState({ type: viewType, active: true })
+        const leaf = workspace.getLeaf(false)
+        await leaf.setViewState({ type: VIEW_MAIN, active: true })
         workspace.revealLeaf(leaf)
     }
 
