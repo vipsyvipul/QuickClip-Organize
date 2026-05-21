@@ -517,7 +517,7 @@ export class QuickClipView extends ItemView {
                     break
                 case 'type':
                     typeSelect = td.createEl('select', { cls: 'qc-type-select' })
-                    typeSelect.createEl('option', { value: '', text: '— type —' })
+                    typeSelect.createEl('option', { value: '', text: 'Select…' })
                     for (const t of PORTENT_TYPES) {
                         const opt = typeSelect.createEl('option', { value: t, text: t })
                         if (entry.type === t) opt.selected = true
