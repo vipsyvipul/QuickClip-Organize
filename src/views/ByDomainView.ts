@@ -1,7 +1,7 @@
 import { WorkspaceLeaf } from 'obsidian'
 import QuickClipPlugin, { VIEW_DOMAIN } from '../main'
 import { ClipEntry } from '../types'
-import { BaseView } from './BaseView'
+import { BaseView, cleanDomain } from './BaseView'
 
 export class ByDomainView extends BaseView {
     private collapsed = new Set<string>()
@@ -22,7 +22,7 @@ export class ByDomainView extends BaseView {
 
         const groups = new Map<string, ClipEntry[]>()
         for (const entry of filtered) {
-            const key = entry.domain || '(no domain)'
+            const key = entry.domain ? cleanDomain(entry.domain) : '(no domain)'
             if (!groups.has(key)) groups.set(key, [])
             groups.get(key)!.push(entry)
         }

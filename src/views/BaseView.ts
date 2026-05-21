@@ -90,7 +90,7 @@ export abstract class BaseView extends ItemView {
 
         // Domain
         const domainTd = tr.createEl('td', { cls: 'qc-cell' })
-        if (entry.domain) domainTd.createSpan({ cls: 'qc-domain-chip', text: entry.domain })
+        if (entry.domain) domainTd.createSpan({ cls: 'qc-domain-chip', text: cleanDomain(entry.domain) })
 
         // Type
         const typeTd = tr.createEl('td', { cls: 'qc-cell' })
@@ -163,19 +163,50 @@ export abstract class BaseView extends ItemView {
         upsell.appendText(' frontmatter to any note.')
     }
 
-    private openEntry(entry: ClipEntry) {
+    private async openEntry(entry: ClipEntry) {
         if (entry.file_path) {
             const file = this.app.vault.getAbstractFileByPath(entry.file_path)
             if (file instanceof TFile) {
-                this.app.workspace.getLeaf(false).openFile(file)
+                if (entry.source === 'frontmatter') {
+                    await this.app.workspace.getLeaf(false).openFile(file)
+                    return
+                }
+                const cache = this.app.metadataCache.getFileCache(file)
+                const titleClean = entry.title.toLowerCase()
+                const match = (cache?.headings ?? []).find((h) => {
+                    const display = h.heading.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim().toLowerCase()
+                    return display === titleClean
+                })
+                await this.app.workspace.getLeaf(false).openFile(file, {
+                    eState: match ? { line: match.position.start.line } : undefined
+                })
                 return
             }
         }
         if (entry.url) {
-            const title = entry.title.replace(/[[\]]/g, '')
-            this.app.workspace.openLinkText(`${title}`, '', false)
+            this.app.workspace.openLinkText(entry.title, '', false)
         }
     }
+}
+
+export const DOMAIN_LABELS: Record<string, string> = {
+    'youtube.com': 'YouTube',
+    'youtu.be': 'YouTube',
+    'twitter.com': 'Twitter',
+    'x.com': 'X',
+    'github.com': 'GitHub',
+    'reddit.com': 'Reddit',
+    'medium.com': 'Medium',
+    'arxiv.org': 'arXiv',
+    'news.ycombinator.com': 'Hacker News',
+    'linkedin.com': 'LinkedIn',
+    'substack.com': 'Substack',
+    'wikipedia.org': 'Wikipedia',
+}
+
+export function cleanDomain(domain: string): string {
+    const stripped = domain.replace(/^www\./, '')
+    return DOMAIN_LABELS[stripped] ?? stripped
 }
 
 function formatDate(iso: string): string {
