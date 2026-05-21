@@ -1,0 +1,10 @@
+{
+  "id": "quickclip-organizer",
+  "name": "QuickClip Organizer",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Organize and archive your QuickClip web captures using the Portent framework.",
+  "author": "Vipul Bansal",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}
