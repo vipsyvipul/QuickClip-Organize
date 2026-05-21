@@ -39,10 +39,10 @@ export class QuickClipView extends ItemView {
         )
         this.registerEvent(
             this.app.metadataCache.on('changed', (file: TFile) => {
+                const isTracked = this.entries.some(e => e.file_path === file.path)
                 const raw = this.app.metadataCache.getFileCache(file)?.frontmatter
-                if (!raw) return
-                const fm = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k.toLowerCase(), v]))
-                if (PORTENT_TYPES.includes(fm.type)) this.refresh()
+                const fm = raw ? Object.fromEntries(Object.entries(raw).map(([k, v]) => [k.toLowerCase(), v])) : {}
+                if (isTracked || PORTENT_TYPES.includes(fm.type)) this.refresh()
             })
         )
         await this.refresh()
