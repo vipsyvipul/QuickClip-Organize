@@ -4,8 +4,23 @@ import { ClipEntry, PORTENT_TYPES, PortentType } from '../types'
 
 export const VIEW_MAIN = 'quickclip-organizer'
 
-type SortKey = 'title' | 'domain' | 'type' | 'last_clipped' | 'organized'
+type SortKey = 'title' | 'domain' | 'type' | 'last_clipped' | 'organized' | 'clip_count' | 'content_type' | 'first_clipped'
 type SortDir = 'asc' | 'desc'
+
+type ColumnKey = 'domain' | 'type' | 'tags' | 'last_clipped' | 'clip_count' | 'content_type' | 'first_clipped' | 'url' | 'source'
+interface ColumnDef { key: ColumnKey; label: string; sortKey?: SortKey }
+
+const CONFIGURABLE_COLUMNS: ColumnDef[] = [
+    { key: 'domain',        label: 'Domain',       sortKey: 'domain' },
+    { key: 'type',          label: 'Type',          sortKey: 'type' },
+    { key: 'tags',          label: 'Tags' },
+    { key: 'last_clipped',  label: 'Last Saved',    sortKey: 'last_clipped' },
+    { key: 'clip_count',    label: 'Clips',         sortKey: 'clip_count' },
+    { key: 'content_type',  label: 'Content Type',  sortKey: 'content_type' },
+    { key: 'first_clipped', label: 'First Saved',   sortKey: 'first_clipped' },
+    { key: 'url',           label: 'URL' },
+    { key: 'source',        label: 'Source' },
+]
 
 export class QuickClipView extends ItemView {
     private plugin: QuickClipPlugin
@@ -108,6 +123,43 @@ export class QuickClipView extends ItemView {
             }
             this.rerenderContent()
         })
+
+        this.renderColumnPicker(toggleGroup)
+    }
+
+    private renderColumnPicker(container: HTMLElement) {
+        const wrapper = container.createDiv({ cls: 'qc-col-picker-wrapper' })
+        const btn = wrapper.createEl('button', { cls: 'qc-col-picker-btn', text: 'Columns ▾' })
+        const panel = wrapper.createDiv({ cls: 'qc-col-picker-panel' })
+        panel.style.display = 'none'
+
+        for (const col of CONFIGURABLE_COLUMNS) {
+            const item = panel.createEl('label', { cls: 'qc-col-picker-item' })
+            const cb = item.createEl('input', { type: 'checkbox' })
+            cb.checked = this.plugin.settings.visibleColumns.includes(col.key)
+            item.appendText(' ' + col.label)
+            cb.addEventListener('change', async () => {
+                if (cb.checked) {
+                    if (!this.plugin.settings.visibleColumns.includes(col.key))
+                        this.plugin.settings.visibleColumns.push(col.key)
+                } else {
+                    this.plugin.settings.visibleColumns = this.plugin.settings.visibleColumns.filter(k => k !== col.key)
+                }
+                await this.plugin.saveSettings()
+                this.rerenderContent()
+            })
+        }
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            const isOpen = panel.style.display !== 'none'
+            panel.style.display = isOpen ? 'none' : ''
+            if (!isOpen) {
+                const close = () => { panel.style.display = 'none'; document.removeEventListener('click', close) }
+                document.addEventListener('click', close)
+            }
+        })
+        panel.addEventListener('click', (e) => e.stopPropagation())
     }
 
     private rerenderContent() {
@@ -122,50 +174,41 @@ export class QuickClipView extends ItemView {
         }
     }
 
+    private addSortableHeader(row: HTMLElement, label: string, key: SortKey) {
+        const th = row.createEl('th', { text: label, cls: 'qc-sortable' })
+        if (key === this.sortKey) {
+            th.addClass('qc-sorted')
+            th.createSpan({ text: this.sortDir === 'asc' ? ' ↑' : ' ↓' })
+        }
+        th.addEventListener('click', () => {
+            if (this.sortKey === key) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc'
+            else { this.sortKey = key; this.sortDir = 'desc' }
+            this.rerenderContent()
+        })
+    }
+
     private renderAllClips(entries: ClipEntry[]) {
         const sorted = [...entries].sort((a, b) => this.compareEntries(a, b))
         if (!sorted.length) { this.renderEmptyState(); return }
 
+        const visibleCols = new Set(this.plugin.settings.visibleColumns as ColumnKey[])
         const table = this.qcContentEl.createEl('table', { cls: 'qc-table' })
         const thead = table.createEl('thead')
         const headerRow = thead.createEl('tr')
 
-        const cols: { label: string; key?: SortKey }[] = [
-            { label: 'Title', key: 'title' },
-            { label: 'Domain', key: 'domain' },
-            { label: 'Type', key: 'type' },
-            { label: 'Tags' },
-            { label: 'Saved', key: 'last_clipped' },
-            { label: 'Belongs To' },
-            { label: 'Related To' },
-            { label: 'Organized', key: 'organized' },
-            { label: 'Progress' },
-        ]
-
-        for (const col of cols) {
-            const th = headerRow.createEl('th', { text: col.label })
-            if (col.key) {
-                th.addClass('qc-sortable')
-                if (col.key === this.sortKey) {
-                    th.addClass('qc-sorted')
-                    th.createSpan({ text: this.sortDir === 'asc' ? ' ↑' : ' ↓' })
-                }
-                th.addEventListener('click', () => {
-                    if (this.sortKey === col.key) {
-                        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc'
-                    } else {
-                        this.sortKey = col.key!
-                        this.sortDir = 'desc'
-                    }
-                    this.rerenderContent()
-                })
-            }
+        this.addSortableHeader(headerRow, 'Title', 'title')
+        for (const col of CONFIGURABLE_COLUMNS) {
+            if (!visibleCols.has(col.key)) continue
+            if (col.sortKey) this.addSortableHeader(headerRow, col.label, col.sortKey)
+            else headerRow.createEl('th', { text: col.label })
         }
+        headerRow.createEl('th', { text: 'Belongs To' })
+        headerRow.createEl('th', { text: 'Related To' })
+        this.addSortableHeader(headerRow, 'Organized', 'organized')
+        headerRow.createEl('th', { text: 'Progress' })
 
         const tbody = table.createEl('tbody')
-        for (const entry of sorted) {
-            this.renderRow(tbody, entry)
-        }
+        for (const entry of sorted) this.renderRow(tbody, entry, visibleCols)
     }
 
     private compareEntries(a: ClipEntry, b: ClipEntry): number {
@@ -174,6 +217,9 @@ export class QuickClipView extends ItemView {
         if (typeof va === 'boolean' && typeof vb === 'boolean') {
             const n = Number(va) - Number(vb)
             return this.sortDir === 'asc' ? n : -n
+        }
+        if (typeof va === 'number' && typeof vb === 'number') {
+            return this.sortDir === 'asc' ? va - vb : vb - va
         }
         const sa = (va as string) || ''
         const sb = (vb as string) || ''
@@ -218,13 +264,20 @@ export class QuickClipView extends ItemView {
         groups: Array<{ key: string; entries: ClipEntry[]; isPort: boolean | null }>,
         collapsedSet: Set<string>
     ) {
+        const visibleCols = new Set(this.plugin.settings.visibleColumns as ColumnKey[])
+        const colCount = 5 + visibleCols.size
+
         this.currentGroupKeys = groups.map(g => g.key)
         this.collapseAllCb.checked = this.currentGroupKeys.length > 0 &&
             this.currentGroupKeys.every(k => collapsedSet.has(k))
         const table = this.qcContentEl.createEl('table', { cls: 'qc-table' })
         const thead = table.createEl('thead')
         const headerRow = thead.createEl('tr')
-        for (const h of ['Title', 'Domain', 'Type', 'Tags', 'Saved', 'Belongs To', 'Related To', 'Organized', 'Progress']) {
+        headerRow.createEl('th', { text: 'Title' })
+        for (const col of CONFIGURABLE_COLUMNS) {
+            if (visibleCols.has(col.key)) headerRow.createEl('th', { text: col.label })
+        }
+        for (const h of ['Belongs To', 'Related To', 'Organized', 'Progress']) {
             headerRow.createEl('th', { text: h })
         }
         const tbody = table.createEl('tbody')
@@ -233,7 +286,7 @@ export class QuickClipView extends ItemView {
             const isCollapsed = collapsedSet.has(key)
 
             const groupTr = tbody.createEl('tr', { cls: 'qc-group-row' })
-            const groupTd = groupTr.createEl('td', { attr: { colspan: '9' }, cls: 'qc-group-cell' })
+            const groupTd = groupTr.createEl('td', { attr: { colspan: String(colCount) }, cls: 'qc-group-cell' })
             const chevron = groupTd.createSpan({ cls: 'qc-group-chevron', text: isCollapsed ? '▶' : '▼' })
             groupTd.createSpan({
                 cls: isPort !== null
@@ -245,7 +298,7 @@ export class QuickClipView extends ItemView {
 
             const sorted = [...entries].sort((a, b) => b.last_clipped.localeCompare(a.last_clipped))
             const dataRows = sorted.map(entry => {
-                const tr = this.renderRow(tbody, entry)
+                const tr = this.renderRow(tbody, entry, visibleCols)
                 if (isCollapsed) tr.style.display = 'none'
                 return tr
             })
@@ -264,62 +317,92 @@ export class QuickClipView extends ItemView {
         }
     }
 
-    private renderRow(tbody: HTMLElement, entry: ClipEntry): HTMLElement {
+    private renderRow(tbody: HTMLElement, entry: ClipEntry, visibleCols: Set<ColumnKey>): HTMLElement {
         const tr = tbody.createEl('tr', { cls: 'qc-row' })
 
+        // Title — always visible
         const titleTd = tr.createEl('td', { cls: 'qc-cell qc-cell--title' })
         const titleLink = titleTd.createEl('a', { cls: 'qc-title-link' })
         titleLink.textContent = entry.title
         titleLink.addEventListener('click', (e) => { e.preventDefault(); this.openEntry(entry) })
 
-        const domainTd = tr.createEl('td', { cls: 'qc-cell' })
-        if (entry.domain) domainTd.createSpan({ cls: 'qc-domain-chip', text: cleanDomain(entry.domain) })
-
-        const typeTd = tr.createEl('td', { cls: 'qc-cell' })
-        const typeSelect = typeTd.createEl('select', { cls: 'qc-type-select' })
-        typeSelect.createEl('option', { value: '', text: '— type —' })
-        for (const t of PORTENT_TYPES) {
-            const opt = typeSelect.createEl('option', { value: t, text: t })
-            if (entry.type === t) opt.selected = true
+        // Configurable columns — rendered in fixed order, only if visible
+        let typeSelect: HTMLSelectElement | null = null
+        for (const col of CONFIGURABLE_COLUMNS) {
+            if (!visibleCols.has(col.key)) continue
+            const td = tr.createEl('td', { cls: 'qc-cell' })
+            switch (col.key) {
+                case 'domain':
+                    if (entry.domain) td.createSpan({ cls: 'qc-domain-chip', text: cleanDomain(entry.domain) })
+                    break
+                case 'type':
+                    td.addClass('qc-cell--type')
+                    typeSelect = td.createEl('select', { cls: 'qc-type-select' })
+                    typeSelect.createEl('option', { value: '', text: '— type —' })
+                    for (const t of PORTENT_TYPES) {
+                        const opt = typeSelect.createEl('option', { value: t, text: t })
+                        if (entry.type === t) opt.selected = true
+                    }
+                    break
+                case 'tags':
+                    td.addClass('qc-cell--tags')
+                    for (const tag of entry.tags) td.createSpan({ cls: 'qc-tag-chip', text: tag })
+                    break
+                case 'last_clipped':
+                    td.addClass('qc-cell--date')
+                    td.textContent = formatDate(entry.last_clipped)
+                    break
+                case 'clip_count':
+                    td.textContent = String(entry.clip_count ?? 0)
+                    break
+                case 'content_type':
+                    if (entry.content_type) td.createSpan({ cls: 'qc-domain-chip', text: entry.content_type })
+                    break
+                case 'first_clipped':
+                    td.addClass('qc-cell--date')
+                    td.textContent = formatDate(entry.first_clipped)
+                    break
+                case 'url':
+                    if (entry.url) {
+                        const link = td.createEl('a', { cls: 'qc-url-link', text: '↗' })
+                        link.addEventListener('click', (e) => { e.preventDefault(); window.open(entry.url, '_blank') })
+                    }
+                    break
+                case 'source':
+                    td.createSpan({ cls: 'qc-domain-chip', text: entry.source })
+                    break
+            }
         }
 
-        const tagsTd = tr.createEl('td', { cls: 'qc-cell qc-cell--tags' })
-        for (const tag of entry.tags) {
-            tagsTd.createSpan({ cls: 'qc-tag-chip', text: tag })
-        }
-
-        const savedTd = tr.createEl('td', { cls: 'qc-cell qc-cell--date' })
-        savedTd.textContent = formatDate(entry.last_clipped)
-
+        // Belongs To — always visible
         const belongsTd = tr.createEl('td', { cls: 'qc-cell qc-cell--belongs' })
         const belongsInput = belongsTd.createEl('input', {
-            cls: 'qc-belongs-input',
-            type: 'text',
-            placeholder: '[[note]]',
+            cls: 'qc-belongs-input', type: 'text', placeholder: '[[note]]',
         })
         belongsInput.value = entry.belongs_to
 
+        // Related To — always visible
         const relatedTd = tr.createEl('td', { cls: 'qc-cell qc-cell--related' })
         const relatedInput = relatedTd.createEl('input', {
-            cls: 'qc-related-input',
-            type: 'text',
-            placeholder: '[[note]], [[note]]',
+            cls: 'qc-related-input', type: 'text', placeholder: '[[note]], [[note]]',
         })
         relatedInput.value = (entry.related_to ?? []).join(', ')
 
+        // Organized — always visible
         const organizedTd = tr.createEl('td', { cls: 'qc-cell qc-cell--organized' })
         const organizedCb = organizedTd.createEl('input', { type: 'checkbox' })
         organizedCb.checked = entry.organized
         organizedCb.disabled = true
 
+        // Progress — always visible
         const progressTd = tr.createEl('td', { cls: 'qc-cell qc-cell--progress' })
         const progressDots = progressTd.createSpan({ cls: `qc-progress-dots qc-progress-dots--${getProgressState(entry)}` })
         progressDots.createSpan({ cls: 'qc-progress-dot qc-progress-dot--grey' })
         progressDots.createSpan({ cls: 'qc-progress-dot qc-progress-dot--amber' })
         progressDots.createSpan({ cls: 'qc-progress-dot qc-progress-dot--green' })
 
-        typeSelect.addEventListener('change', async () => {
-            const newType = typeSelect.value as PortentType
+        typeSelect?.addEventListener('change', async () => {
+            const newType = typeSelect!.value as PortentType
             const organized = !!(newType && entry.belongs_to)
             await this.plugin.updateEntry(entry, { type: newType, organized })
             entry.type = newType

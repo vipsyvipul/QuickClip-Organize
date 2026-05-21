@@ -297,6 +297,55 @@
 }
 
 
+/* ── Column picker ── */
+.qc-col-picker-wrapper {
+    position: relative;
+}
+
+.qc-col-picker-btn {
+    background: none;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: var(--font-ui-small);
+    padding: 3px 10px;
+}
+
+.qc-col-picker-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.qc-col-picker-panel {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-s);
+    min-width: 160px;
+    padding: 6px;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 100;
+}
+
+.qc-col-picker-item {
+    align-items: center;
+    border-radius: 4px;
+    color: var(--text-normal);
+    cursor: pointer;
+    display: flex;
+    font-size: var(--font-ui-small);
+    gap: 8px;
+    padding: 5px 8px;
+    white-space: nowrap;
+}
+
+.qc-col-picker-item:hover {
+    background: var(--background-modifier-hover);
+}
+
 /* ── Related To input ── */
 .qc-cell--related {
     min-width: 120px;

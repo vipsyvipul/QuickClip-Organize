@@ -7,9 +7,14 @@ import { QuickClipView, VIEW_MAIN } from './views/QuickClipView'
 interface PluginSettings {
     showOrganized: boolean
     activeTab: 'all' | 'domain' | 'type'
+    visibleColumns: string[]
 }
 
-const DEFAULT_SETTINGS: PluginSettings = { showOrganized: false, activeTab: 'all' }
+const DEFAULT_SETTINGS: PluginSettings = {
+    showOrganized: false,
+    activeTab: 'all',
+    visibleColumns: ['type', 'last_clipped'],
+}
 
 export default class QuickClipPlugin extends Plugin {
     settings: PluginSettings = { ...DEFAULT_SETTINGS }
