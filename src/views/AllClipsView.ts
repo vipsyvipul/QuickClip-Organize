@@ -22,7 +22,7 @@ export class AllClipsView extends BaseView {
         this.renderToolbar(container)
 
         const filtered = entries
-            .filter((e) => !e.archived)
+            .filter((e) => !e.archived && (this.showOrganized || !e.organized))
             .sort((a, b) => this.compare(a, b))
 
         if (!filtered.length) {

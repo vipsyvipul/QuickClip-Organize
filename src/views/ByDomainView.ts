@@ -17,7 +17,7 @@ export class ByDomainView extends BaseView {
     protected render(container: HTMLElement, entries: ClipEntry[]) {
         this.renderToolbar(container)
 
-        const filtered = entries.filter((e) => !e.archived)
+        const filtered = entries.filter((e) => !e.archived && (this.showOrganized || !e.organized))
         if (!filtered.length) { this.renderEmptyState(container); return }
 
         const groups = new Map<string, ClipEntry[]>()

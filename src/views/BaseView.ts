@@ -5,6 +5,7 @@ import { ClipEntry, PORTENT_TYPES, PortentType } from '../types'
 export abstract class BaseView extends ItemView {
     protected plugin: QuickClipPlugin
     protected entries: ClipEntry[] = []
+    protected showOrganized = false
 
     constructor(leaf: WorkspaceLeaf, plugin: QuickClipPlugin) {
         super(leaf)
@@ -30,6 +31,10 @@ export abstract class BaseView extends ItemView {
 
     async refresh() {
         this.entries = await this.plugin.loadEntries()
+        this.rerender()
+    }
+
+    protected rerender() {
         const container = this.containerEl.children[1] as HTMLElement
         container.empty()
         container.addClass('qc-container')
@@ -55,6 +60,15 @@ export abstract class BaseView extends ItemView {
                 btn.addEventListener('click', () => this.plugin.activateView(v.type))
             }
         }
+
+        const toggle = toolbar.createEl('label', { cls: 'qc-toggle' })
+        const cb = toggle.createEl('input', { type: 'checkbox' })
+        cb.checked = this.showOrganized
+        toggle.appendText(' Show organized')
+        cb.addEventListener('change', () => {
+            this.showOrganized = cb.checked
+            this.rerender()
+        })
     }
 
     protected renderTable(container: HTMLElement, entries: ClipEntry[]) {
