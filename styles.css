@@ -483,4 +483,30 @@
 /* organized: all three lit */
 .qc-progress-dots--organized .qc-progress-dot { opacity: 1; }
 
+/* ── Wikilink suggest dropdown ── */
+.qc-suggest-dropdown {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    box-shadow: var(--shadow-s);
+    max-height: 200px;
+    min-width: 200px;
+    overflow-y: auto;
+    position: fixed;
+    z-index: 1000;
+}
+
+.qc-suggest-item {
+    color: var(--text-normal);
+    cursor: pointer;
+    font-size: var(--font-ui-small);
+    padding: 5px 10px;
+    white-space: nowrap;
+}
+
+.qc-suggest-item:hover,
+.qc-suggest-item--active {
+    background: var(--background-modifier-hover);
+}
+
 /* ── Type badges (By Type view) ── */

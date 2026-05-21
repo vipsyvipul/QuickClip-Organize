@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, TFile, TAbstractFile } from 'obsidian'
+import { App, ItemView, WorkspaceLeaf, TFile, TAbstractFile } from 'obsidian'
 import QuickClipPlugin from '../main'
 import { ClipEntry, PORTENT_TYPES, PortentType } from '../types'
 
@@ -44,6 +44,7 @@ export class QuickClipView extends ItemView {
     private filterContentEl!: HTMLSelectElement
     private filterDateEl!: HTMLSelectElement
     private filterClearBtn!: HTMLElement
+    private suggestDropdowns: HTMLElement[] = []
 
     constructor(leaf: WorkspaceLeaf, plugin: QuickClipPlugin) {
         super(leaf)
@@ -78,7 +79,10 @@ export class QuickClipView extends ItemView {
         await this.refresh()
     }
 
-    async onClose() {}
+    async onClose() {
+        this.suggestDropdowns.forEach(d => d.remove())
+        this.suggestDropdowns = []
+    }
 
     async refresh() {
         this.entries = await this.plugin.loadEntries()
@@ -268,6 +272,8 @@ export class QuickClipView extends ItemView {
     }
 
     private rerenderContent() {
+        this.suggestDropdowns.forEach(d => d.remove())
+        this.suggestDropdowns = []
         this.qcContentEl.empty()
         const s = this.plugin.settings
         const filtered = this.entries.filter((e) => {
@@ -548,12 +554,12 @@ export class QuickClipView extends ItemView {
                     break
                 case 'belongs_to':
                     td.addClass('qc-cell--belongs')
-                    belongsInput = td.createEl('input', { cls: 'qc-belongs-input', type: 'text', placeholder: '[[note]]' })
+                    belongsInput = td.createEl('input', { cls: 'qc-belongs-input', type: 'text', placeholder: 'Search notes…' })
                     belongsInput.value = entry.belongs_to
                     break
                 case 'related_to':
                     td.addClass('qc-cell--related')
-                    relatedInput = td.createEl('input', { cls: 'qc-related-input', type: 'text', placeholder: '[[note]], [[note]]' })
+                    relatedInput = td.createEl('input', { cls: 'qc-related-input', type: 'text', placeholder: 'Search notes…' })
                     relatedInput.value = (entry.related_to ?? []).join(', ')
                     break
                 case 'organized':
@@ -583,6 +589,7 @@ export class QuickClipView extends ItemView {
         })
 
         if (belongsInput) {
+            this.suggestDropdowns.push(attachWikilinkSuggest(this.app, belongsInput, false))
             let belongsDebounce: ReturnType<typeof setTimeout>
             belongsInput.addEventListener('input', () => {
                 clearTimeout(belongsDebounce)
@@ -598,6 +605,7 @@ export class QuickClipView extends ItemView {
         }
 
         if (relatedInput) {
+            this.suggestDropdowns.push(attachWikilinkSuggest(this.app, relatedInput, true))
             let relatedDebounce: ReturnType<typeof setTimeout>
             relatedInput.addEventListener('input', () => {
                 clearTimeout(relatedDebounce)
@@ -687,6 +695,108 @@ function getDateCutoff(range: string): Date | null {
         case '3m':    return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
         default:      return null
     }
+}
+
+function attachWikilinkSuggest(app: App, input: HTMLInputElement, multi: boolean): HTMLElement {
+    const dropdown = document.body.createDiv('qc-suggest-dropdown')
+    dropdown.style.display = 'none'
+
+    let activeIdx = -1
+    let currentItems: string[] = []
+    let isSelecting = false
+
+    const position = () => {
+        const rect = input.getBoundingClientRect()
+        dropdown.style.top = `${rect.bottom + 2}px`
+        dropdown.style.left = `${rect.left}px`
+        dropdown.style.minWidth = `${Math.max(rect.width, 200)}px`
+    }
+
+    const getQuery = (): string => {
+        const val = input.value
+        const raw = multi ? (val.split(',').pop() ?? '') : val
+        return raw.trim().replace(/^\[\[/, '').replace(/\]\]$/, '')
+    }
+
+    const setActive = (idx: number) => {
+        Array.from(dropdown.children).forEach((el, i) =>
+            (el as HTMLElement).classList.toggle('qc-suggest-item--active', i === idx)
+        )
+        activeIdx = idx
+    }
+
+    const close = () => {
+        dropdown.style.display = 'none'
+        activeIdx = -1
+    }
+
+    const select = (name: string) => {
+        isSelecting = true
+        if (multi) {
+            const parts = input.value.split(',').map(s => s.trim())
+            parts[parts.length - 1] = `[[${name}]]`
+            input.value = parts.filter(Boolean).join(', ')
+        } else {
+            input.value = `[[${name}]]`
+        }
+        close()
+        input.dispatchEvent(new Event('input'))
+        isSelecting = false
+    }
+
+    const open = () => {
+        if (isSelecting) return
+        const query = getQuery()
+        if (!query) { close(); return }
+
+        const files = app.vault.getMarkdownFiles()
+        currentItems = files
+            .map((f: TFile) => f.basename)
+            .filter((name: string) => name.toLowerCase().includes(query.toLowerCase()))
+            .sort((a: string, b: string) => {
+                const ql = query.toLowerCase()
+                const as = a.toLowerCase().startsWith(ql)
+                const bs = b.toLowerCase().startsWith(ql)
+                if (as !== bs) return as ? -1 : 1
+                return a.localeCompare(b)
+            })
+            .slice(0, 10)
+
+        if (!currentItems.length) { close(); return }
+
+        dropdown.empty()
+        activeIdx = -1
+        position()
+        dropdown.style.display = ''
+
+        for (const name of currentItems) {
+            const item = dropdown.createDiv('qc-suggest-item')
+            item.textContent = name
+            item.addEventListener('mouseenter', () => setActive(currentItems.indexOf(name)))
+            item.addEventListener('mousedown', (e) => { e.preventDefault(); select(name) })
+        }
+    }
+
+    input.addEventListener('input', open)
+    input.addEventListener('blur', () => setTimeout(close, 150))
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (dropdown.style.display === 'none') return
+        if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setActive(Math.min(activeIdx + 1, currentItems.length - 1))
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setActive(Math.max(activeIdx - 1, 0))
+        } else if (e.key === 'Enter' && activeIdx >= 0) {
+            e.preventDefault()
+            e.stopPropagation()
+            select(currentItems[activeIdx])
+        } else if (e.key === 'Escape') {
+            close()
+        }
+    })
+
+    return dropdown
 }
 
 function formatDate(iso: string): string {
