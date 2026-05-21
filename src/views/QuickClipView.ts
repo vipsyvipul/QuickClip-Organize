@@ -4,7 +4,7 @@ import { ClipEntry, PORTENT_TYPES, PortentType } from '../types'
 
 export const VIEW_MAIN = 'quickclip-organizer'
 
-type SortKey = 'title' | 'domain' | 'type' | 'last_clipped'
+type SortKey = 'title' | 'domain' | 'type' | 'last_clipped' | 'organized'
 type SortDir = 'asc' | 'desc'
 
 export class QuickClipView extends ItemView {
@@ -136,8 +136,10 @@ export class QuickClipView extends ItemView {
             { label: 'Type', key: 'type' },
             { label: 'Tags' },
             { label: 'Saved', key: 'last_clipped' },
-            { label: 'Organized' },
             { label: 'Belongs To' },
+            { label: 'Related To' },
+            { label: 'Organized', key: 'organized' },
+            { label: 'Progress' },
         ]
 
         for (const col of cols) {
@@ -167,9 +169,15 @@ export class QuickClipView extends ItemView {
     }
 
     private compareEntries(a: ClipEntry, b: ClipEntry): number {
-        const va = (a[this.sortKey] as string) || ''
-        const vb = (b[this.sortKey] as string) || ''
-        return this.sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+        const va = a[this.sortKey]
+        const vb = b[this.sortKey]
+        if (typeof va === 'boolean' && typeof vb === 'boolean') {
+            const n = Number(va) - Number(vb)
+            return this.sortDir === 'asc' ? n : -n
+        }
+        const sa = (va as string) || ''
+        const sb = (vb as string) || ''
+        return this.sortDir === 'asc' ? sa.localeCompare(sb) : sb.localeCompare(sa)
     }
 
     private renderByDomain(entries: ClipEntry[]) {
@@ -216,7 +224,7 @@ export class QuickClipView extends ItemView {
         const table = this.qcContentEl.createEl('table', { cls: 'qc-table' })
         const thead = table.createEl('thead')
         const headerRow = thead.createEl('tr')
-        for (const h of ['Title', 'Domain', 'Type', 'Tags', 'Saved', 'Organized', 'Belongs To']) {
+        for (const h of ['Title', 'Domain', 'Type', 'Tags', 'Saved', 'Belongs To', 'Related To', 'Organized', 'Progress']) {
             headerRow.createEl('th', { text: h })
         }
         const tbody = table.createEl('tbody')
@@ -225,7 +233,7 @@ export class QuickClipView extends ItemView {
             const isCollapsed = collapsedSet.has(key)
 
             const groupTr = tbody.createEl('tr', { cls: 'qc-group-row' })
-            const groupTd = groupTr.createEl('td', { attr: { colspan: '7' }, cls: 'qc-group-cell' })
+            const groupTd = groupTr.createEl('td', { attr: { colspan: '9' }, cls: 'qc-group-cell' })
             const chevron = groupTd.createSpan({ cls: 'qc-group-chevron', text: isCollapsed ? '▶' : '▼' })
             groupTd.createSpan({
                 cls: isPort !== null
@@ -274,15 +282,6 @@ export class QuickClipView extends ItemView {
             const opt = typeSelect.createEl('option', { value: t, text: t })
             if (entry.type === t) opt.selected = true
         }
-        typeSelect.addEventListener('change', async () => {
-            const newType = typeSelect.value as PortentType
-            const organized = !!newType
-            await this.plugin.updateEntry(entry, { type: newType, organized })
-            entry.type = newType
-            entry.organized = organized
-            organizedCb.checked = organized
-            tr.toggleClass('qc-row--organized', organized)
-        })
 
         const tagsTd = tr.createEl('td', { cls: 'qc-cell qc-cell--tags' })
         for (const tag of entry.tags) {
@@ -292,11 +291,6 @@ export class QuickClipView extends ItemView {
         const savedTd = tr.createEl('td', { cls: 'qc-cell qc-cell--date' })
         savedTd.textContent = formatDate(entry.last_clipped)
 
-        const organizedTd = tr.createEl('td', { cls: 'qc-cell qc-cell--organized' })
-        const organizedCb = organizedTd.createEl('input', { type: 'checkbox' })
-        organizedCb.checked = entry.organized
-        organizedCb.disabled = true
-
         const belongsTd = tr.createEl('td', { cls: 'qc-cell qc-cell--belongs' })
         const belongsInput = belongsTd.createEl('input', {
             cls: 'qc-belongs-input',
@@ -304,16 +298,60 @@ export class QuickClipView extends ItemView {
             placeholder: '[[note]]',
         })
         belongsInput.value = entry.belongs_to
-        let debounce: ReturnType<typeof setTimeout>
+
+        const relatedTd = tr.createEl('td', { cls: 'qc-cell qc-cell--related' })
+        const relatedInput = relatedTd.createEl('input', {
+            cls: 'qc-related-input',
+            type: 'text',
+            placeholder: '[[note]], [[note]]',
+        })
+        relatedInput.value = (entry.related_to ?? []).join(', ')
+
+        const organizedTd = tr.createEl('td', { cls: 'qc-cell qc-cell--organized' })
+        const organizedCb = organizedTd.createEl('input', { type: 'checkbox' })
+        organizedCb.checked = entry.organized
+        organizedCb.disabled = true
+
+        const progressTd = tr.createEl('td', { cls: 'qc-cell qc-cell--progress' })
+        const progressDots = progressTd.createSpan({ cls: `qc-progress-dots qc-progress-dots--${getProgressState(entry)}` })
+        progressDots.createSpan({ cls: 'qc-progress-dot qc-progress-dot--grey' })
+        progressDots.createSpan({ cls: 'qc-progress-dot qc-progress-dot--amber' })
+        progressDots.createSpan({ cls: 'qc-progress-dot qc-progress-dot--green' })
+
+        typeSelect.addEventListener('change', async () => {
+            const newType = typeSelect.value as PortentType
+            const organized = !!(newType && entry.belongs_to)
+            await this.plugin.updateEntry(entry, { type: newType, organized })
+            entry.type = newType
+            entry.organized = organized
+            organizedCb.checked = organized
+            setProgressDots(progressDots, entry)
+        })
+
+        let belongsDebounce: ReturnType<typeof setTimeout>
         belongsInput.addEventListener('input', () => {
-            clearTimeout(debounce)
-            debounce = setTimeout(async () => {
-                await this.plugin.updateEntry(entry, { belongs_to: belongsInput.value })
+            clearTimeout(belongsDebounce)
+            belongsDebounce = setTimeout(async () => {
+                const organized = !!(entry.type && belongsInput.value)
+                await this.plugin.updateEntry(entry, { belongs_to: belongsInput.value, organized })
                 entry.belongs_to = belongsInput.value
+                entry.organized = organized
+                organizedCb.checked = organized
+                setProgressDots(progressDots, entry)
             }, 500)
         })
 
-        if (entry.organized) tr.addClass('qc-row--organized')
+        let relatedDebounce: ReturnType<typeof setTimeout>
+        relatedInput.addEventListener('input', () => {
+            clearTimeout(relatedDebounce)
+            relatedDebounce = setTimeout(async () => {
+                const values = relatedInput.value.split(',').map(s => s.trim()).filter(Boolean)
+                await this.plugin.updateEntry(entry, { related_to: values })
+                entry.related_to = values
+                setProgressDots(progressDots, entry)
+            }, 500)
+        })
+
         return tr
     }
 
@@ -350,6 +388,16 @@ export class QuickClipView extends ItemView {
         }
         if (entry.url) this.app.workspace.openLinkText(entry.title, '', false)
     }
+}
+
+function getProgressState(entry: ClipEntry): 'raw' | 'planning' | 'organized' {
+    if (entry.type && entry.belongs_to) return 'organized'
+    if (entry.type && entry.related_to?.length) return 'planning'
+    return 'raw'
+}
+
+function setProgressDots(dots: HTMLElement, entry: ClipEntry) {
+    dots.className = `qc-progress-dots qc-progress-dots--${getProgressState(entry)}`
 }
 
 export const DOMAIN_LABELS: Record<string, string> = {

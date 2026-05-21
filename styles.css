@@ -118,9 +118,6 @@
     background: var(--background-modifier-hover);
 }
 
-.qc-row--organized {
-    opacity: 0.6;
-}
 
 .qc-cell {
     padding: 8px 10px;
@@ -299,5 +296,63 @@
     display: none;
 }
 
+
+/* ── Related To input ── */
+.qc-cell--related {
+    min-width: 120px;
+}
+
+.qc-related-input {
+    background: none;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+    padding: 2px 4px;
+    width: 100%;
+    min-width: 100px;
+}
+
+.qc-related-input::placeholder {
+    color: var(--text-faint);
+}
+
+.qc-related-input:focus {
+    outline: none;
+    border-bottom-color: var(--interactive-accent);
+}
+
+/* ── Progress dots ── */
+.qc-cell--progress {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.qc-progress-dots {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.qc-progress-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    opacity: 0.18;
+}
+
+.qc-progress-dot--grey  { background: var(--text-muted); }
+.qc-progress-dot--amber { background: #e8960a; }
+.qc-progress-dot--green { background: #4caf50; }
+
+/* raw: grey dot lit */
+.qc-progress-dots--raw .qc-progress-dot--grey { opacity: 1; }
+
+/* planning: grey + amber lit */
+.qc-progress-dots--planning .qc-progress-dot--grey,
+.qc-progress-dots--planning .qc-progress-dot--amber { opacity: 1; }
+
+/* organized: all three lit */
+.qc-progress-dots--organized .qc-progress-dot { opacity: 1; }
 
 /* ── Type badges (By Type view) ── */
