@@ -64,12 +64,22 @@ Default visible columns: Title · Type · Last Saved · Belongs To · Related To
 
 | Field | UI element | Writes to |
 |---|---|---|
-| Type | `<select>` dropdown — 8 Portent types | `clipsHistory.json` or frontmatter |
-| Belongs To | Text input, accepts `[[wikilink]]`, debounced 500ms | `clipsHistory.json` or frontmatter |
-| Related To | Text input, accepts comma-separated `[[wikilinks]]`, debounced 500ms | `clipsHistory.json` or frontmatter |
+| Type | `<select>` dropdown — 8 Portent types; placeholder "Select…" | `clipsHistory.json` or frontmatter |
+| Belongs To | Wikilink chip + suggest — see below | `clipsHistory.json` or frontmatter |
+| Related To | Wikilink chips + suggest (multi) — see below | `clipsHistory.json` or frontmatter |
 | Organized | Checkbox — display only, disabled; auto-computed from type + belongs_to | — |
 | Progress | 3-dot indicator (grey/amber/green) — display only, auto-computed | — |
 | Tags | Read-only chips (editing in v1.1) | — |
+
+**Wikilink chip UI (`renderWikilinkField`)** — used for Belongs To and Related To:
+- Stored wikilinks (`[[filename]]`) render as styled clickable chips; clicking navigates to the file
+- `×` on a chip removes it and saves immediately
+- Belongs To (single): shows chip when filled, search input when empty — never both at once
+- Related To (multi): chips inline, "Add…" input always on its own line below chips
+- Typing in the input opens a file-suggest dropdown (up to 10 matches, starts-with ranked first)
+- Arrow keys navigate, Enter or click selects; `Escape` closes
+- **Only vault file selections produce wikilinks** — no free text is ever saved. This means the metadata cache never fires mid-typing (no debounced save on keystrokes), so frontmatter-sourced entries never trigger a view re-render while the user is typing.
+- Saved values are always in `[[basename]]` format; `isWikilink(s)` validates this (`/^\[\[.+\]\]$/`)
 
 **Title click behaviour:**
 - JSON clips with `file_path` → uses metadata cache to find the heading by line number. The extension saves headings as `## [Title](url)`; the cache stores this as `[Title](url)` so matching strips markdown link syntax before comparing against `entry.title`. Falls back to opening file at top if no match.
@@ -195,16 +205,20 @@ Location: `.quickclip/clipsHistory.json` in the active Obsidian vault. Written b
 ### `organized` auto-computation
 
 ```typescript
-// After every type or belongs_to edit — BOTH must be non-empty:
-const organized = !!(entry.type && entry.belongs_to)
+// After every type or belongs_to chip change — type non-empty AND belongs_to is a valid wikilink:
+const organized = !!(entry.type && isWikilink(entry.belongs_to))
+
+function isWikilink(s: string): boolean {
+    return /^\[\[.+\]\]$/.test((s ?? '').trim())
+}
 ```
 
-"Organized" means the clip has a type AND a home. Setting only a type is capture. Setting only `belongs_to` with no type is not yet complete.
+"Organized" means the clip has a type AND a valid home link. Plain text in `belongs_to` does not count — only a `[[wikilink]]` selected from the suggest dropdown flips `organized`.
 
 The **Progress** state is derived at render time only (never stored):
 ```typescript
 function getProgressState(entry: ClipEntry): 'raw' | 'planning' | 'organized' {
-    if (entry.type && entry.belongs_to) return 'organized'
+    if (entry.type && entry.belongs_to) return 'organized'  // belongs_to always a wikilink now
     if (entry.type && entry.related_to?.length) return 'planning'
     return 'raw'
 }
