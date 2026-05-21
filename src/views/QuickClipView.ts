@@ -15,6 +15,9 @@ export class QuickClipView extends ItemView {
     private sortDir: SortDir = 'desc'
     private collapsedDomain = new Set<string>()
     private collapsedType = new Set<string>()
+    private currentGroupKeys: string[] = []
+    private collapseAllLabel!: HTMLLabelElement
+    private collapseAllCb!: HTMLInputElement
 
     constructor(leaf: WorkspaceLeaf, plugin: QuickClipPlugin) {
         super(leaf)
@@ -74,17 +77,35 @@ export class QuickClipView extends ItemView {
                 this.plugin.settings.activeTab = tab.key
                 await this.plugin.saveSettings()
                 btns.forEach((b, i) => b.toggleClass('qc-tab--active', tabs[i].key === tab.key))
+                this.collapseAllLabel.style.display = tab.key === 'all' ? 'none' : ''
+                this.collapseAllCb.checked = false
                 this.rerenderContent()
             })
         }
 
-        const toggle = toolbar.createEl('label', { cls: 'qc-toggle' })
+        const toggleGroup = toolbar.createDiv('qc-toggle-group')
+
+        const toggle = toggleGroup.createEl('label', { cls: 'qc-toggle' })
         const cb = toggle.createEl('input', { type: 'checkbox' })
         cb.checked = this.plugin.settings.showOrganized
         toggle.appendText(' Show organized')
         cb.addEventListener('change', async () => {
             this.plugin.settings.showOrganized = cb.checked
             await this.plugin.saveSettings()
+            this.rerenderContent()
+        })
+
+        this.collapseAllLabel = toggleGroup.createEl('label', { cls: 'qc-toggle' })
+        this.collapseAllLabel.style.display = this.plugin.settings.activeTab === 'all' ? 'none' : ''
+        this.collapseAllCb = this.collapseAllLabel.createEl('input', { type: 'checkbox' })
+        this.collapseAllLabel.appendText(' Collapse all')
+        this.collapseAllCb.addEventListener('change', () => {
+            const collapsedSet = this.plugin.settings.activeTab === 'domain' ? this.collapsedDomain : this.collapsedType
+            if (this.collapseAllCb.checked) {
+                this.currentGroupKeys.forEach(k => collapsedSet.add(k))
+            } else {
+                collapsedSet.clear()
+            }
             this.rerenderContent()
         })
     }
@@ -189,6 +210,9 @@ export class QuickClipView extends ItemView {
         groups: Array<{ key: string; entries: ClipEntry[]; isPort: boolean | null }>,
         collapsedSet: Set<string>
     ) {
+        this.currentGroupKeys = groups.map(g => g.key)
+        this.collapseAllCb.checked = this.currentGroupKeys.length > 0 &&
+            this.currentGroupKeys.every(k => collapsedSet.has(k))
         const table = this.qcContentEl.createEl('table', { cls: 'qc-table' })
         const thead = table.createEl('thead')
         const headerRow = thead.createEl('tr')

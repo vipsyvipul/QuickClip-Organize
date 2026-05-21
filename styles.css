@@ -39,8 +39,14 @@
     cursor: default;
 }
 
-.qc-toggle {
+.qc-toggle-group {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.qc-toggle {
     display: flex;
     align-items: center;
     gap: 6px;
