@@ -45,11 +45,15 @@ export default class QuickClipPlugin extends Plugin {
 
     async activateView(viewType: string) {
         const { workspace } = this.app
-        let leaf = workspace.getLeavesOfType(viewType)[0]
-        if (!leaf) {
-            leaf = workspace.getLeaf(false)
-            await leaf.setViewState({ type: viewType, active: true })
-        }
+        const existing = workspace.getLeavesOfType(viewType)[0]
+        if (existing) { workspace.revealLeaf(existing); return }
+
+        // Reuse whichever plugin leaf is already open
+        const pluginViewTypes = [VIEW_INBOX, VIEW_ALL, VIEW_DOMAIN, VIEW_TYPE]
+        let leaf = pluginViewTypes.flatMap(t => workspace.getLeavesOfType(t))[0]
+            ?? workspace.getLeaf(false)
+
+        await leaf.setViewState({ type: viewType, active: true })
         workspace.revealLeaf(leaf)
     }
 
