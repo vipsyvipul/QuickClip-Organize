@@ -287,9 +287,6 @@
     display: none;
 }
 
-.qc-table--nested thead {
-    display: none;
-}
 
 /* ── Type badges (By Type view) ── */
 .qc-type-badge--port {

@@ -160,9 +160,10 @@ export class QuickClipView extends ItemView {
             groups.get(key)!.push(entry)
         }
         const sorted = [...groups.entries()].sort((a, b) => b[1].length - a[1].length)
-        for (const [domain, groupEntries] of sorted) {
-            this.renderGroup(domain, groupEntries, this.collapsedDomain, null)
-        }
+        this.renderGroupedTable(
+            sorted.map(([key, grpEntries]) => ({ key, entries: grpEntries, isPort: null })),
+            this.collapsedDomain
+        )
     }
 
     private renderByType(entries: ClipEntry[]) {
@@ -174,52 +175,64 @@ export class QuickClipView extends ItemView {
             if (!groups.has(key)) groups.set(key, [])
             groups.get(key)!.push(entry)
         }
-        for (const typeKey of TYPE_ORDER) {
-            const groupEntries = groups.get(typeKey)
-            if (!groupEntries) continue
-            const isPort = ['Project', 'Operation', 'Responsibility', 'Task'].includes(typeKey)
-            this.renderGroup(typeKey, groupEntries, this.collapsedType, isPort)
-        }
+        const ordered = TYPE_ORDER
+            .filter(k => groups.has(k))
+            .map(k => ({
+                key: k,
+                entries: groups.get(k)!,
+                isPort: ['Project', 'Operation', 'Responsibility', 'Task'].includes(k),
+            }))
+        this.renderGroupedTable(ordered, this.collapsedType)
     }
 
-    private renderGroup(key: string, entries: ClipEntry[], collapsedSet: Set<string>, isPort: boolean | null) {
-        const group = this.qcContentEl.createDiv('qc-group')
-        const header = group.createDiv('qc-group-header')
-        const isCollapsed = collapsedSet.has(key)
-
-        header.createSpan({ cls: 'qc-group-chevron', text: isCollapsed ? '▶' : '▼' })
-        header.createSpan({
-            cls: isPort !== null
-                ? `qc-group-label qc-type-badge qc-type-badge--${isPort ? 'port' : 'entp'}`
-                : 'qc-group-label',
-            text: key,
-        })
-        header.createSpan({ cls: 'qc-group-count', text: `${entries.length}` })
-
-        const body = group.createDiv('qc-group-body')
-        if (isCollapsed) body.addClass('qc-group-body--hidden')
-
-        header.addEventListener('click', () => {
-            if (collapsedSet.has(key)) {
-                collapsedSet.delete(key)
-                body.removeClass('qc-group-body--hidden')
-                header.querySelector('.qc-group-chevron')!.textContent = '▼'
-            } else {
-                collapsedSet.add(key)
-                body.addClass('qc-group-body--hidden')
-                header.querySelector('.qc-group-chevron')!.textContent = '▶'
-            }
-        })
-
-        const table = body.createEl('table', { cls: 'qc-table qc-table--nested' })
+    private renderGroupedTable(
+        groups: Array<{ key: string; entries: ClipEntry[]; isPort: boolean | null }>,
+        collapsedSet: Set<string>
+    ) {
+        const table = this.qcContentEl.createEl('table', { cls: 'qc-table' })
+        const thead = table.createEl('thead')
+        const headerRow = thead.createEl('tr')
+        for (const h of ['Title', 'Domain', 'Type', 'Tags', 'Saved', 'Organized', 'Belongs To']) {
+            headerRow.createEl('th', { text: h })
+        }
         const tbody = table.createEl('tbody')
-        const sorted = [...entries].sort((a, b) => b.last_clipped.localeCompare(a.last_clipped))
-        for (const entry of sorted) {
-            this.renderRow(tbody, entry)
+
+        for (const { key, entries, isPort } of groups) {
+            const isCollapsed = collapsedSet.has(key)
+
+            const groupTr = tbody.createEl('tr', { cls: 'qc-group-row' })
+            const groupTd = groupTr.createEl('td', { attr: { colspan: '7' }, cls: 'qc-group-cell' })
+            const chevron = groupTd.createSpan({ cls: 'qc-group-chevron', text: isCollapsed ? '▶' : '▼' })
+            groupTd.createSpan({
+                cls: isPort !== null
+                    ? `qc-group-label qc-type-badge qc-type-badge--${isPort ? 'port' : 'entp'}`
+                    : 'qc-group-label',
+                text: key,
+            })
+            groupTd.createSpan({ cls: 'qc-group-count', text: `${entries.length}` })
+
+            const sorted = [...entries].sort((a, b) => b.last_clipped.localeCompare(a.last_clipped))
+            const dataRows = sorted.map(entry => {
+                const tr = this.renderRow(tbody, entry)
+                if (isCollapsed) tr.style.display = 'none'
+                return tr
+            })
+
+            groupTr.addEventListener('click', () => {
+                if (collapsedSet.has(key)) {
+                    collapsedSet.delete(key)
+                    chevron.textContent = '▼'
+                    dataRows.forEach(r => r.style.display = '')
+                } else {
+                    collapsedSet.add(key)
+                    chevron.textContent = '▶'
+                    dataRows.forEach(r => r.style.display = 'none')
+                }
+            })
         }
     }
 
-    private renderRow(tbody: HTMLElement, entry: ClipEntry) {
+    private renderRow(tbody: HTMLElement, entry: ClipEntry): HTMLElement {
         const tr = tbody.createEl('tr', { cls: 'qc-row' })
 
         const titleTd = tr.createEl('td', { cls: 'qc-cell qc-cell--title' })
@@ -277,6 +290,7 @@ export class QuickClipView extends ItemView {
         })
 
         if (entry.organized) tr.addClass('qc-row--organized')
+        return tr
     }
 
     private renderEmptyState() {
