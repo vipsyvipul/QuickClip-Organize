@@ -82,8 +82,10 @@ function mergeEntries(jsonEntries: ClipEntry[], fmEntries: ClipEntry[], app: App
         const cache = app.metadataCache.getFileCache(
             app.vault.getAbstractFileByPath(entry.file_path) as any
         )
-        const fm = cache?.frontmatter
-        if (!fm || !PORTENT_TYPES.includes(fm.type as any)) return entry
+        const raw = cache?.frontmatter
+        if (!raw) return entry
+        const fm = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k.toLowerCase(), v]))
+        if (!PORTENT_TYPES.includes(fm.type as any)) return entry
 
         return {
             ...entry,

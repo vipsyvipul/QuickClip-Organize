@@ -6,8 +6,9 @@ export async function loadFrontmatterEntries(app: App): Promise<ClipEntry[]> {
 
     for (const file of app.vault.getMarkdownFiles()) {
         const cache = app.metadataCache.getFileCache(file)
-        const fm = cache?.frontmatter
-        if (!fm) continue
+        const raw = cache?.frontmatter
+        if (!raw) continue
+        const fm = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k.toLowerCase(), v]))
 
         const type = fm.type as string
         if (!PORTENT_TYPES.includes(type as any)) continue
