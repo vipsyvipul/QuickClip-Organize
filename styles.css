@@ -302,6 +302,64 @@
     position: relative;
 }
 
+/* ── Filter bar ── */
+.qc-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.qc-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.qc-filter-label {
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+}
+
+.qc-filter-select {
+    background: none;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    color: var(--text-normal);
+    cursor: pointer;
+    font-size: var(--font-ui-small);
+    padding: 3px 6px;
+}
+
+.qc-filter-select:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+}
+
+.qc-filter-select--active {
+    border-color: var(--interactive-accent);
+    color: var(--interactive-accent);
+}
+
+.qc-filter-clear {
+    background: none;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: var(--font-ui-small);
+    margin-left: auto;
+    padding: 3px 10px;
+}
+
+.qc-filter-clear:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
 /* ── Column drag-drop ── */
 .qc-col-draggable {
     cursor: grab;

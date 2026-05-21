@@ -9,6 +9,10 @@ interface PluginSettings {
     activeTab: 'all' | 'domain' | 'type'
     visibleColumns: string[]
     columnOrder: string[]
+    filterType: string
+    filterProgress: string
+    filterContentType: string
+    filterDate: string
 }
 
 const DEFAULT_SETTINGS: PluginSettings = {
@@ -16,6 +20,10 @@ const DEFAULT_SETTINGS: PluginSettings = {
     activeTab: 'all',
     visibleColumns: ['type', 'last_clipped'],
     columnOrder: [],
+    filterType: '',
+    filterProgress: '',
+    filterContentType: '',
+    filterDate: '',
 }
 
 export default class QuickClipPlugin extends Plugin {

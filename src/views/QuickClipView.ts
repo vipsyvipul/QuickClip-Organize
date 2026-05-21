@@ -39,6 +39,11 @@ export class QuickClipView extends ItemView {
     private currentGroupKeys: string[] = []
     private collapseAllLabel!: HTMLLabelElement
     private collapseAllCb!: HTMLInputElement
+    private filterTypeEl!: HTMLSelectElement
+    private filterProgressEl!: HTMLSelectElement
+    private filterContentEl!: HTMLSelectElement
+    private filterDateEl!: HTMLSelectElement
+    private filterClearBtn!: HTMLElement
 
     constructor(leaf: WorkspaceLeaf, plugin: QuickClipPlugin) {
         super(leaf)
@@ -54,6 +59,7 @@ export class QuickClipView extends ItemView {
         root.empty()
         root.addClass('qc-container')
         this.renderToolbar(root)
+        this.renderFilterBar(root)
         this.qcContentEl = root.createDiv('qc-content')
         this.registerEvent(
             this.app.vault.on('modify', (file: TAbstractFile) => {
@@ -76,6 +82,7 @@ export class QuickClipView extends ItemView {
 
     async refresh() {
         this.entries = await this.plugin.loadEntries()
+        this.updateContentTypeOptions()
         this.rerenderContent()
     }
 
@@ -133,6 +140,98 @@ export class QuickClipView extends ItemView {
         this.renderColumnPicker(toggleGroup)
     }
 
+    private renderFilterBar(container: HTMLElement) {
+        const s = this.plugin.settings
+        const bar = container.createDiv('qc-filter-bar')
+
+        this.filterTypeEl = this.createFilterSelect(bar, 'Type', [
+            { value: '', label: 'All types' },
+            ...PORTENT_TYPES.map(t => ({ value: t, label: t })),
+        ], s.filterType)
+
+        this.filterProgressEl = this.createFilterSelect(bar, 'Progress', [
+            { value: '', label: 'All' },
+            { value: 'raw', label: 'Raw' },
+            { value: 'planning', label: 'Planning' },
+            { value: 'organized', label: 'Organized' },
+        ], s.filterProgress)
+
+        this.filterContentEl = this.createFilterSelect(bar, 'Content', [], s.filterContentType)
+
+        this.filterDateEl = this.createFilterSelect(bar, 'Date', [
+            { value: '', label: 'All time' },
+            { value: 'today', label: 'Today' },
+            { value: '7d', label: 'Last 7 days' },
+            { value: '30d', label: 'Last 30 days' },
+            { value: '3m', label: 'Last 3 months' },
+        ], s.filterDate)
+
+        this.filterClearBtn = bar.createEl('button', { cls: 'qc-filter-clear', text: '✕ Clear' })
+        this.filterClearBtn.addEventListener('click', async () => {
+            this.plugin.settings.filterType = ''
+            this.plugin.settings.filterProgress = ''
+            this.plugin.settings.filterContentType = ''
+            this.plugin.settings.filterDate = ''
+            await this.plugin.saveSettings()
+            this.filterTypeEl.value = ''
+            this.filterProgressEl.value = ''
+            this.filterContentEl.value = ''
+            this.filterDateEl.value = ''
+            ;[this.filterTypeEl, this.filterProgressEl, this.filterContentEl, this.filterDateEl]
+                .forEach(el => el.removeClass('qc-filter-select--active'))
+            this.updateFilterClear()
+            this.rerenderContent()
+        })
+
+        for (const [el, key] of [
+            [this.filterTypeEl, 'filterType'],
+            [this.filterProgressEl, 'filterProgress'],
+            [this.filterContentEl, 'filterContentType'],
+            [this.filterDateEl, 'filterDate'],
+        ] as [HTMLSelectElement, string][]) {
+            el.addEventListener('change', async () => {
+                (this.plugin.settings as unknown as Record<string, string>)[key] = el.value
+                await this.plugin.saveSettings()
+                el.toggleClass('qc-filter-select--active', !!el.value)
+                this.updateFilterClear()
+                this.rerenderContent()
+            })
+        }
+
+        this.updateContentTypeOptions()
+        this.updateFilterClear()
+    }
+
+    private createFilterSelect(
+        container: HTMLElement,
+        label: string,
+        options: { value: string; label: string }[],
+        current: string
+    ): HTMLSelectElement {
+        const wrap = container.createDiv('qc-filter-group')
+        wrap.createSpan({ cls: 'qc-filter-label', text: label })
+        const sel = wrap.createEl('select', { cls: 'qc-filter-select' })
+        for (const opt of options) sel.createEl('option', { value: opt.value, text: opt.label })
+        sel.value = current
+        if (current) sel.addClass('qc-filter-select--active')
+        return sel
+    }
+
+    private updateContentTypeOptions() {
+        const current = this.filterContentEl?.value ?? ''
+        this.filterContentEl?.empty()
+        this.filterContentEl?.createEl('option', { value: '', text: 'All content' })
+        const types = [...new Set(this.entries.map(e => e.content_type).filter(Boolean))].sort()
+        for (const t of types) this.filterContentEl?.createEl('option', { value: t, text: t })
+        if (this.filterContentEl) this.filterContentEl.value = current
+    }
+
+    private updateFilterClear() {
+        const s = this.plugin.settings
+        const active = !!(s.filterType || s.filterProgress || s.filterContentType || s.filterDate)
+        if (this.filterClearBtn) this.filterClearBtn.style.display = active ? '' : 'none'
+    }
+
     private renderColumnPicker(container: HTMLElement) {
         const wrapper = container.createDiv({ cls: 'qc-col-picker-wrapper' })
         const btn = wrapper.createEl('button', { cls: 'qc-col-picker-btn', text: 'Columns ▾' })
@@ -170,9 +269,19 @@ export class QuickClipView extends ItemView {
 
     private rerenderContent() {
         this.qcContentEl.empty()
-        const filtered = this.entries.filter(
-            (e) => !e.archived && (this.plugin.settings.showOrganized || !e.organized)
-        )
+        const s = this.plugin.settings
+        const filtered = this.entries.filter((e) => {
+            if (e.archived) return false
+            if (!s.showOrganized && e.organized) return false
+            if (s.filterType && e.type !== s.filterType) return false
+            if (s.filterProgress && getProgressState(e) !== s.filterProgress) return false
+            if (s.filterContentType && e.content_type !== s.filterContentType) return false
+            if (s.filterDate) {
+                const cutoff = getDateCutoff(s.filterDate)
+                if (cutoff && new Date(e.last_clipped) < cutoff) return false
+            }
+            return true
+        })
         switch (this.plugin.settings.activeTab) {
             case 'all': this.renderAllClips(filtered); break
             case 'domain': this.renderByDomain(filtered); break
@@ -567,6 +676,17 @@ export const DOMAIN_LABELS: Record<string, string> = {
 export function cleanDomain(domain: string): string {
     const stripped = domain.replace(/^www\./, '')
     return DOMAIN_LABELS[stripped] ?? stripped
+}
+
+function getDateCutoff(range: string): Date | null {
+    const now = new Date()
+    switch (range) {
+        case 'today': return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        case '7d':    return new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000)
+        case '30d':   return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        case '3m':    return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+        default:      return null
+    }
 }
 
 function formatDate(iso: string): string {
