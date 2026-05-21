@@ -206,25 +206,72 @@
     white-space: nowrap;
 }
 
-/* ── Belongs To input ── */
-.qc-belongs-input {
-    background: none;
-    border: none;
-    border-bottom: 1px solid transparent;
-    color: var(--text-normal);
-    font-size: var(--font-ui-small);
-    padding: 2px 4px;
-    width: 100%;
-    min-width: 100px;
+/* ── Wikilink chip field (Belongs To / Related To) ── */
+.qc-wikilink-field {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
-.qc-belongs-input::placeholder {
+.qc-wikilink-chip {
+    align-items: center;
+    background: var(--tag-background);
+    border-radius: 4px;
+    display: inline-flex;
+    font-size: var(--font-ui-small);
+    gap: 4px;
+    padding: 3px 6px 3px 9px;
+    white-space: nowrap;
+}
+
+.qc-wikilink-chip-name {
+    color: var(--tag-color);
+    cursor: pointer;
+}
+
+.qc-wikilink-chip-name:hover {
+    color: var(--text-accent);
+    text-decoration: underline;
+}
+
+.qc-wikilink-chip-remove {
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    user-select: none;
+}
+
+.qc-wikilink-chip-remove:hover {
+    color: var(--text-normal);
+}
+
+/* Override Obsidian's default input[type="text"] box styling */
+input.qc-wikilink-input {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: var(--text-normal);
+    flex-basis: 100%;
+    font-size: var(--font-ui-small);
+    height: auto;
+    min-width: 60px;
+    outline: none !important;
+    padding: 2px 4px;
+    width: 100%;
+}
+
+input.qc-wikilink-input::placeholder {
     color: var(--text-faint);
 }
 
-.qc-belongs-input:focus {
-    outline: none;
-    border-bottom-color: var(--interactive-accent);
+input.qc-wikilink-input:focus {
+    border-bottom-color: var(--interactive-accent) !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
 /* ── Empty state ── */
@@ -425,29 +472,9 @@
     background: var(--background-modifier-hover);
 }
 
-/* ── Related To input ── */
+/* ── Related To cell ── */
 .qc-cell--related {
     min-width: 120px;
-}
-
-.qc-related-input {
-    background: none;
-    border: none;
-    border-bottom: 1px solid transparent;
-    color: var(--text-normal);
-    font-size: var(--font-ui-small);
-    padding: 2px 4px;
-    width: 100%;
-    min-width: 100px;
-}
-
-.qc-related-input::placeholder {
-    color: var(--text-faint);
-}
-
-.qc-related-input:focus {
-    outline: none;
-    border-bottom-color: var(--interactive-accent);
 }
 
 /* ── Progress dots ── */

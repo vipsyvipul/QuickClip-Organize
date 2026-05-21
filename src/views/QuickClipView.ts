@@ -505,8 +505,6 @@ export class QuickClipView extends ItemView {
 
         // Interactive element handles — assigned inside switch, used in event handlers below
         let typeSelect: HTMLSelectElement | null = null
-        let belongsInput: HTMLInputElement | null = null
-        let relatedInput: HTMLInputElement | null = null
         let organizedCb: HTMLInputElement | null = null
         let progressDots: HTMLElement | null = null
 
@@ -554,13 +552,35 @@ export class QuickClipView extends ItemView {
                     break
                 case 'belongs_to':
                     td.addClass('qc-cell--belongs')
-                    belongsInput = td.createEl('input', { cls: 'qc-belongs-input', type: 'text', placeholder: 'Search notes…' })
-                    belongsInput.value = entry.belongs_to
+                    renderWikilinkField(
+                        this.app, td,
+                        entry.belongs_to ? [entry.belongs_to].filter(isWikilink) : [],
+                        false,
+                        this.suggestDropdowns,
+                        async (links) => {
+                            const newBelongs = links[0] || ''
+                            const organized = !!(entry.type && newBelongs)
+                            await this.plugin.updateEntry(entry, { belongs_to: newBelongs, organized })
+                            entry.belongs_to = newBelongs
+                            entry.organized = organized
+                            if (organizedCb) organizedCb.checked = organized
+                            if (progressDots) setProgressDots(progressDots, entry)
+                        }
+                    )
                     break
                 case 'related_to':
                     td.addClass('qc-cell--related')
-                    relatedInput = td.createEl('input', { cls: 'qc-related-input', type: 'text', placeholder: 'Search notes…' })
-                    relatedInput.value = (entry.related_to ?? []).join(', ')
+                    renderWikilinkField(
+                        this.app, td,
+                        (entry.related_to ?? []).filter(isWikilink),
+                        true,
+                        this.suggestDropdowns,
+                        async (links) => {
+                            await this.plugin.updateEntry(entry, { related_to: links })
+                            entry.related_to = links
+                            if (progressDots) setProgressDots(progressDots, entry)
+                        }
+                    )
                     break
                 case 'organized':
                     td.addClass('qc-cell--organized')
@@ -580,43 +600,13 @@ export class QuickClipView extends ItemView {
 
         typeSelect?.addEventListener('change', async () => {
             const newType = typeSelect!.value as PortentType
-            const organized = !!(newType && entry.belongs_to)
+            const organized = !!(newType && isWikilink(entry.belongs_to))
             await this.plugin.updateEntry(entry, { type: newType, organized })
             entry.type = newType
             entry.organized = organized
             if (organizedCb) organizedCb.checked = organized
             if (progressDots) setProgressDots(progressDots, entry)
         })
-
-        if (belongsInput) {
-            this.suggestDropdowns.push(attachWikilinkSuggest(this.app, belongsInput, false))
-            let belongsDebounce: ReturnType<typeof setTimeout>
-            belongsInput.addEventListener('input', () => {
-                clearTimeout(belongsDebounce)
-                belongsDebounce = setTimeout(async () => {
-                    const organized = !!(entry.type && belongsInput!.value)
-                    await this.plugin.updateEntry(entry, { belongs_to: belongsInput!.value, organized })
-                    entry.belongs_to = belongsInput!.value
-                    entry.organized = organized
-                    if (organizedCb) organizedCb.checked = organized
-                    if (progressDots) setProgressDots(progressDots, entry)
-                }, 500)
-            })
-        }
-
-        if (relatedInput) {
-            this.suggestDropdowns.push(attachWikilinkSuggest(this.app, relatedInput, true))
-            let relatedDebounce: ReturnType<typeof setTimeout>
-            relatedInput.addEventListener('input', () => {
-                clearTimeout(relatedDebounce)
-                relatedDebounce = setTimeout(async () => {
-                    const values = relatedInput!.value.split(',').map(s => s.trim()).filter(Boolean)
-                    await this.plugin.updateEntry(entry, { related_to: values })
-                    entry.related_to = values
-                    if (progressDots) setProgressDots(progressDots, entry)
-                }, 500)
-            })
-        }
 
         return tr
     }
@@ -697,25 +687,95 @@ function getDateCutoff(range: string): Date | null {
     }
 }
 
-function attachWikilinkSuggest(app: App, input: HTMLInputElement, multi: boolean): HTMLElement {
+function isWikilink(s: string): boolean {
+    return /^\[\[.+\]\]$/.test((s ?? '').trim())
+}
+
+function renderWikilinkField(
+    app: App,
+    container: HTMLElement,
+    initialLinks: string[],
+    multi: boolean,
+    suggestDropdowns: HTMLElement[],
+    onChipsChange: (links: string[]) => void
+): void {
+    let links = [...initialLinks]
+    let currentDropdown: HTMLElement | null = null
+
+    // wrapper div carries flex layout — the <td> itself keeps display:table-cell
+    const wrapper = container.createDiv('qc-wikilink-field')
+
+    const renderChips = () => {
+        wrapper.empty()
+        if (currentDropdown) {
+            currentDropdown.remove()
+            const idx = suggestDropdowns.indexOf(currentDropdown)
+            if (idx >= 0) suggestDropdowns.splice(idx, 1)
+            currentDropdown = null
+        }
+
+        for (let i = 0; i < links.length; i++) {
+            const link = links[i]
+            const name = link.replace(/^\[\[/, '').replace(/\]\]$/, '')
+            const chip = wrapper.createDiv('qc-wikilink-chip')
+            chip.createSpan({ cls: 'qc-wikilink-chip-name', text: name })
+            chip.querySelector<HTMLElement>('.qc-wikilink-chip-name')!
+                .addEventListener('click', () => {
+                    const file = app.vault.getMarkdownFiles().find((f: TFile) => f.basename === name)
+                    if (file) app.workspace.getLeaf(false).openFile(file)
+                    else app.workspace.openLinkText(name, '', false)
+                })
+            chip.createSpan({ cls: 'qc-wikilink-chip-remove', text: '×' })
+                .addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    links.splice(i, 1)
+                    renderChips()
+                    onChipsChange([...links])
+                })
+        }
+
+        // belongs_to (single): show input only when empty
+        // related_to (multi): always show input so user can keep adding
+        if (multi || links.length === 0) {
+            const input = wrapper.createEl('input', {
+                type: 'text',
+                cls: 'qc-wikilink-input',
+                placeholder: links.length > 0 ? 'Add…' : 'Search notes…',
+            })
+            const dropdown = attachWikilinkSuggest(app, input, (name) => {
+                const link = `[[${name}]]`
+                if (!multi) {
+                    links = [link]
+                } else if (!links.includes(link)) {
+                    links.push(link)
+                }
+                renderChips()
+                onChipsChange([...links])
+            })
+            currentDropdown = dropdown
+            suggestDropdowns.push(dropdown)
+        }
+    }
+
+    renderChips()
+}
+
+function attachWikilinkSuggest(
+    app: App,
+    input: HTMLInputElement,
+    onSelect: (name: string) => void
+): HTMLElement {
     const dropdown = document.body.createDiv('qc-suggest-dropdown')
     dropdown.style.display = 'none'
 
     let activeIdx = -1
     let currentItems: string[] = []
-    let isSelecting = false
 
     const position = () => {
         const rect = input.getBoundingClientRect()
         dropdown.style.top = `${rect.bottom + 2}px`
         dropdown.style.left = `${rect.left}px`
         dropdown.style.minWidth = `${Math.max(rect.width, 200)}px`
-    }
-
-    const getQuery = (): string => {
-        const val = input.value
-        const raw = multi ? (val.split(',').pop() ?? '') : val
-        return raw.trim().replace(/^\[\[/, '').replace(/\]\]$/, '')
     }
 
     const setActive = (idx: number) => {
@@ -730,23 +790,8 @@ function attachWikilinkSuggest(app: App, input: HTMLInputElement, multi: boolean
         activeIdx = -1
     }
 
-    const select = (name: string) => {
-        isSelecting = true
-        if (multi) {
-            const parts = input.value.split(',').map(s => s.trim())
-            parts[parts.length - 1] = `[[${name}]]`
-            input.value = parts.filter(Boolean).join(', ')
-        } else {
-            input.value = `[[${name}]]`
-        }
-        close()
-        input.dispatchEvent(new Event('input'))
-        isSelecting = false
-    }
-
     const open = () => {
-        if (isSelecting) return
-        const query = getQuery()
+        const query = input.value.trim()
         if (!query) { close(); return }
 
         const files = app.vault.getMarkdownFiles()
@@ -773,7 +818,7 @@ function attachWikilinkSuggest(app: App, input: HTMLInputElement, multi: boolean
             const item = dropdown.createDiv('qc-suggest-item')
             item.textContent = name
             item.addEventListener('mouseenter', () => setActive(currentItems.indexOf(name)))
-            item.addEventListener('mousedown', (e) => { e.preventDefault(); select(name) })
+            item.addEventListener('mousedown', (e) => { e.preventDefault(); close(); onSelect(name) })
         }
     }
 
@@ -790,7 +835,9 @@ function attachWikilinkSuggest(app: App, input: HTMLInputElement, multi: boolean
         } else if (e.key === 'Enter' && activeIdx >= 0) {
             e.preventDefault()
             e.stopPropagation()
-            select(currentItems[activeIdx])
+            const selected = currentItems[activeIdx]
+            close()
+            onSelect(selected)
         } else if (e.key === 'Escape') {
             close()
         }
