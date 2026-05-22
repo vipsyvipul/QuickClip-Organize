@@ -56,7 +56,7 @@ export class QuickClipView extends ItemView {
 
     getViewType() { return VIEW_MAIN }
     getDisplayText() { return 'QuickClip Organize' }
-    getIcon() { return 'list' }
+    getIcon() { return 'inbox' }
 
     async onOpen() {
         const root = this.containerEl.children[1] as HTMLElement
