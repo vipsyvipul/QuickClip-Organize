@@ -1,7 +1,7 @@
 {
   "id": "quickclip-organize",
   "name": "QuickClip Organize",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.0.0",
   "description": "A Portent-based dashboard to classify, connect, and track every note through its lifecycle — from raw capture to organized knowledge. Works with any note; enhanced with the QuickClip extension.",
   "author": "Vipul Bansal",
