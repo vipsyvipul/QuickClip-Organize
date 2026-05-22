@@ -182,6 +182,14 @@ The full classify → connect → track → archive workflow works entirely from
 
 ---
 
+## Vault access
+
+This plugin scans all Markdown files in your vault to find notes with Portent frontmatter (`type`, `belongs_to`, etc.) and surface them in the dashboard. It uses `vault.getMarkdownFiles()` — standard Obsidian API — to enumerate file paths and read frontmatter via the metadata cache.
+
+The plugin reads file paths and frontmatter only. It does not read note body content, send any data outside your vault, or access files outside Obsidian.
+
+---
+
 ## License
 
 MIT
