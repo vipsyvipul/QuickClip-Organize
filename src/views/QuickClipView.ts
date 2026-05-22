@@ -693,13 +693,10 @@ export class QuickClipView extends ItemView {
 
     private renderEmptyState() {
         const empty = this.qcContentEl.createDiv('qc-empty-state')
-        empty.createEl('p', { text: 'No clips yet.' })
         const upsell = empty.createEl('p', { cls: 'qc-upsell' })
-        upsell.appendText('Capture web content with the ')
-        upsell.createEl('a', { text: 'QuickClip Chrome extension', href: 'https://chrome.google.com/webstore' })
-        upsell.appendText(', or add ')
+        upsell.appendText('No clips yet. Add ')
         upsell.createEl('code', { text: 'type:' })
-        upsell.appendText(' frontmatter to any note.')
+        upsell.appendText(' frontmatter to any note to track it here.')
     }
 
     private async openEntry(entry: ClipEntry) {

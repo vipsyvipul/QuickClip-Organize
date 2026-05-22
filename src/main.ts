@@ -91,18 +91,18 @@ export default class QuickClipPlugin extends Plugin {
 }
 
 function mergeEntries(jsonEntries: ClipEntry[], fmEntries: ClipEntry[], app: App): ClipEntry[] {
-    const merged = jsonEntries.map((entry) => {
-        if (!entry.file_path) return entry
+    const merged = jsonEntries.flatMap((entry) => {
+        if (!entry.file_path) return [entry]
 
-        const cache = app.metadataCache.getFileCache(
-            app.vault.getAbstractFileByPath(entry.file_path) as any
-        )
+        const vaultFile = app.vault.getAbstractFileByPath(entry.file_path)
+        if (!vaultFile) return []
+        const cache = app.metadataCache.getFileCache(vaultFile as any)
         const raw = cache?.frontmatter
-        if (!raw) return entry
+        if (!raw) return [entry]
         const fm = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k.toLowerCase(), v]))
-        if (!PORTENT_TYPES.includes(fm.type as any)) return entry
+        if (!PORTENT_TYPES.includes(fm.type as any)) return [entry]
 
-        return {
+        return [{
             ...entry,
             type: fm.type as PortentType,
             organized: fm.organized ?? entry.organized,
@@ -117,7 +117,7 @@ function mergeEntries(jsonEntries: ClipEntry[], fmEntries: ClipEntry[], app: App
             first_clipped: fm.first_clipped || entry.first_clipped,
             last_clipped: fm.last_clipped || entry.last_clipped,
             source: 'both' as const,
-        }
+        }]
     })
 
     const coveredPaths = new Set(merged.map((e) => e.file_path).filter(Boolean))
