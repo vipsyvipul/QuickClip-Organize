@@ -3,6 +3,8 @@ import { ClipEntry, PortentType, PORTENT_TYPES } from '../types'
 
 const INDEX_PATH = '.quickclip/clipsHistory.json'
 
+let saveQueue: Promise<void> = Promise.resolve()
+
 async function readIndex(app: App): Promise<Record<string, any>> {
     try {
         const raw = await app.vault.adapter.read(INDEX_PATH)
@@ -44,13 +46,17 @@ export async function loadJsonEntries(app: App): Promise<ClipEntry[]> {
     })
 }
 
-export async function updateJsonEntry(
+export function updateJsonEntry(
     app: App,
     url: string,
     fields: Partial<Pick<ClipEntry, 'type' | 'organized' | 'archived' | 'belongs_to' | 'related_to'>>
 ): Promise<void> {
-    const index = await readIndex(app)
-    if (!index[url]) return
-    Object.assign(index[url], fields)
-    await app.vault.adapter.write(INDEX_PATH, JSON.stringify(index, null, 2))
+    const op = saveQueue.catch(() => {}).then(async () => {
+        const index = await readIndex(app)
+        if (!index[url]) return
+        Object.assign(index[url], fields)
+        await app.vault.adapter.write(INDEX_PATH, JSON.stringify(index, null, 2))
+    })
+    saveQueue = op
+    return op
 }

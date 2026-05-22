@@ -108,8 +108,10 @@ function mergeEntries(jsonEntries: ClipEntry[], fmEntries: ClipEntry[], app: App
             organized: fm.organized ?? entry.organized,
             archived: fm.archived ?? entry.archived,
             belongs_to: fm.belongs_to || entry.belongs_to,
-            related_to: fm.related_to || entry.related_to,
-            url: fm.url || entry.url,
+            related_to: Array.isArray(fm.related_to) ? fm.related_to
+                : typeof fm.related_to === 'string' && fm.related_to ? [fm.related_to]
+                : entry.related_to,
+            url: entry.url,
             domain: fm.domain || entry.domain,
             content_type: fm.content_type || entry.content_type,
             first_clipped: fm.first_clipped || entry.first_clipped,

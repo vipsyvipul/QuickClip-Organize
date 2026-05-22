@@ -45,6 +45,7 @@ export class QuickClipView extends ItemView {
     private filterDateEl!: HTMLSelectElement
     private filterClearBtn!: HTMLElement
     private suggestDropdowns: HTMLElement[] = []
+    private colPickerClose: (() => void) | null = null
 
     constructor(leaf: WorkspaceLeaf, plugin: QuickClipPlugin) {
         super(leaf)
@@ -80,6 +81,10 @@ export class QuickClipView extends ItemView {
     }
 
     async onClose() {
+        if (this.colPickerClose) {
+            document.removeEventListener('click', this.colPickerClose)
+            this.colPickerClose = null
+        }
         this.suggestDropdowns.forEach(d => d.remove())
         this.suggestDropdowns = []
     }
@@ -263,9 +268,18 @@ export class QuickClipView extends ItemView {
             e.stopPropagation()
             const isOpen = panel.style.display !== 'none'
             panel.style.display = isOpen ? 'none' : ''
-            if (!isOpen) {
-                const close = () => { panel.style.display = 'none'; document.removeEventListener('click', close) }
-                document.addEventListener('click', close)
+            if (isOpen) {
+                if (this.colPickerClose) {
+                    document.removeEventListener('click', this.colPickerClose)
+                    this.colPickerClose = null
+                }
+            } else {
+                this.colPickerClose = () => {
+                    panel.style.display = 'none'
+                    document.removeEventListener('click', this.colPickerClose!)
+                    this.colPickerClose = null
+                }
+                document.addEventListener('click', this.colPickerClose)
             }
         })
         panel.addEventListener('click', (e) => e.stopPropagation())
@@ -372,6 +386,7 @@ export class QuickClipView extends ItemView {
     }
 
     private renderAllClips(entries: ClipEntry[]) {
+        this.currentGroupKeys = []
         const sorted = [...entries].sort((a, b) => this.compareEntries(a, b))
         if (!sorted.length) { this.renderEmptyState(); return }
 
@@ -559,7 +574,7 @@ export class QuickClipView extends ItemView {
                         this.suggestDropdowns,
                         async (links) => {
                             const newBelongs = links[0] || ''
-                            const organized = !!(entry.type && newBelongs)
+                            const organized = !!(entry.type && isWikilink(newBelongs))
                             await this.plugin.updateEntry(entry, { belongs_to: newBelongs, organized })
                             entry.belongs_to = newBelongs
                             entry.organized = organized
@@ -642,12 +657,17 @@ export class QuickClipView extends ItemView {
                 return
             }
         }
-        if (entry.url) this.app.workspace.openLinkText(entry.title, '', false)
+        if (entry.url) {
+            try {
+                const parsed = new URL(entry.url)
+                if (parsed.protocol === 'https:' || parsed.protocol === 'http:') window.open(entry.url, '_blank')
+            } catch { /* invalid URL */ }
+        }
     }
 }
 
 function getProgressState(entry: ClipEntry): 'raw' | 'planning' | 'organized' {
-    if (entry.type && entry.belongs_to) return 'organized'
+    if (entry.type && isWikilink(entry.belongs_to)) return 'organized'
     if (entry.type && entry.related_to?.length) return 'planning'
     return 'raw'
 }
@@ -701,11 +721,14 @@ function renderWikilinkField(
 ): void {
     let links = [...initialLinks]
     let currentDropdown: HTMLElement | null = null
+    let inputAbort = new AbortController()
 
     // wrapper div carries flex layout — the <td> itself keeps display:table-cell
     const wrapper = container.createDiv('qc-wikilink-field')
 
     const renderChips = () => {
+        inputAbort.abort()
+        inputAbort = new AbortController()
         wrapper.empty()
         if (currentDropdown) {
             currentDropdown.remove()
@@ -742,7 +765,7 @@ function renderWikilinkField(
                 cls: 'qc-wikilink-input',
                 placeholder: links.length > 0 ? 'Add…' : 'Search notes…',
             })
-            const dropdown = attachWikilinkSuggest(app, input, (name) => {
+            const dropdown = attachWikilinkSuggest(app, input, inputAbort.signal, (name) => {
                 const link = `[[${name}]]`
                 if (!multi) {
                     links = [link]
@@ -763,6 +786,7 @@ function renderWikilinkField(
 function attachWikilinkSuggest(
     app: App,
     input: HTMLInputElement,
+    signal: AbortSignal,
     onSelect: (name: string) => void
 ): HTMLElement {
     const dropdown = document.body.createDiv('qc-suggest-dropdown')
@@ -822,8 +846,8 @@ function attachWikilinkSuggest(
         }
     }
 
-    input.addEventListener('input', open)
-    input.addEventListener('blur', () => setTimeout(close, 150))
+    input.addEventListener('input', open, { signal })
+    input.addEventListener('blur', () => setTimeout(close, 150), { signal })
     input.addEventListener('keydown', (e: KeyboardEvent) => {
         if (dropdown.style.display === 'none') return
         if (e.key === 'ArrowDown') {
@@ -841,7 +865,7 @@ function attachWikilinkSuggest(
         } else if (e.key === 'Escape') {
             close()
         }
-    })
+    }, { signal })
 
     return dropdown
 }
