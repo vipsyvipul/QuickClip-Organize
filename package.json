@@ -1,5 +1,5 @@
 {
-  "name": "quickclip-organizer",
+  "name": "quickclip-organize",
   "version": "1.0.0",
   "description": "Organize and archive your QuickClip web captures using the Portent framework.",
   "main": "main.js",

@@ -1,4 +1,4 @@
-# QuickClip Organizer — Plugin Codebase Reference
+# QuickClip Organize — Plugin Codebase Reference
 
 Obsidian plugin that serves as the **organize and archive layer** for QuickClip captures. QuickClip (Chrome extension) handles capture — this plugin handles everything after.
 
@@ -26,7 +26,7 @@ DEV/
     esbuild.config.mjs
 ```
 
-**View type constant:** `'quickclip-organizer'` — single registered view (`VIEW_MAIN` in `QuickClipView.ts`).
+**View type constant:** `'quickclip-organize'` — single registered view (`VIEW_MAIN` in `QuickClipView.ts`).
 
 **Plugin settings** (persisted via `loadData`/`saveData` into Obsidian's `data.json`):
 - `showOrganized: boolean` — shared across all tabs, default `false`
@@ -348,17 +348,17 @@ Test vault: `DEV/notes/` — already has Portent-tagged notes for testing frontm
 
 Plugin files are symlinked:
 ```
-DEV/notes/.obsidian/plugins/quickclip-organizer/
+DEV/notes/.obsidian/plugins/quickclip-organize/
   main.js    → symlink to DEV/QuickClip-Plugin-OBS/main.js
   styles.css → symlink to DEV/QuickClip-Plugin-OBS/styles.css
   manifest.json  (copied — only needs updating on version bump)
 ```
 
-Settings → Community plugins → Turn off restricted mode → enable QuickClip Organizer.
+Settings → Community plugins → Turn off restricted mode → enable QuickClip Organize.
 
 Install **Hot Reload** plugin (by pjeby) — auto-reloads on file change. Or reload manually via DevTools console:
 ```javascript
-app.plugins.disablePlugin('quickclip-organizer').then(() => app.plugins.enablePlugin('quickclip-organizer'))
+app.plugins.disablePlugin('quickclip-organize').then(() => app.plugins.enablePlugin('quickclip-organize'))
 ```
 
 ### Dev loop
@@ -380,8 +380,8 @@ app.plugins.disablePlugin('quickclip-organizer').then(() => app.plugins.enablePl
 
 ```json
 {
-  "id": "quickclip-organizer",
-  "name": "QuickClip Organizer",
+  "id": "quickclip-organize",
+  "name": "QuickClip Organize",
   "author": "Vipul Bansal",
   "description": "Organize and archive your QuickClip web captures inside Obsidian.",
   "repo": "yourgithub/QuickClip-Plugin-OBS"

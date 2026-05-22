@@ -2,7 +2,7 @@ import { App, ItemView, WorkspaceLeaf, TFile, TAbstractFile } from 'obsidian'
 import QuickClipPlugin from '../main'
 import { ClipEntry, PORTENT_TYPES, PortentType } from '../types'
 
-export const VIEW_MAIN = 'quickclip-organizer'
+export const VIEW_MAIN = 'quickclip-organize'
 
 type SortKey = 'title' | 'domain' | 'type' | 'last_clipped' | 'organized' | 'clip_count' | 'content_type' | 'first_clipped'
 type SortDir = 'asc' | 'desc'
@@ -52,7 +52,7 @@ export class QuickClipView extends ItemView {
     }
 
     getViewType() { return VIEW_MAIN }
-    getDisplayText() { return 'QuickClip Organizer' }
+    getDisplayText() { return 'QuickClip Organize' }
     getIcon() { return 'list' }
 
     async onOpen() {

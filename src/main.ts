@@ -35,9 +35,9 @@ export default class QuickClipPlugin extends Plugin {
 
         this.registerView(VIEW_MAIN, (leaf) => new QuickClipView(leaf, this))
 
-        this.addRibbonIcon('list', 'QuickClip Organizer', () => this.activateView())
+        this.addRibbonIcon('list', 'QuickClip Organize', () => this.activateView())
 
-        this.addCommand({ id: 'open', name: 'Open QuickClip Organizer', callback: () => this.activateView() })
+        this.addCommand({ id: 'open', name: 'Open QuickClip Organize', callback: () => this.activateView() })
     }
 
     onunload() {
