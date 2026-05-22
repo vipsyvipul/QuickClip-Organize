@@ -46,7 +46,7 @@ Registers a native Obsidian `ItemView` (like Graph view or Backlinks — not a `
 
 **Core UX principle:** No setup. No Dataview queries. No extra plugins. Everything built into the plugin's own rendered UI.
 
-**Extension-agnostic:** Plugin works standalone — any Obsidian note with Portent frontmatter appears in the dashboard. The QuickClip extension is not required but adds capture-time intelligence (auto-metadata, type inference at capture, return-to-source). Upsell is ambient: shown in empty state and on entries with no source URL. Never a blocker.
+**Extension-agnostic:** Plugin works standalone — any Obsidian note with Portent frontmatter appears in the dashboard. The QuickClip extension is not required but adds capture-time intelligence (auto-metadata, type inference at capture, return-to-source). Never a blocker.
 
 **Initialization:** On `onload()`, plugin silently creates `.quickclip/` folder and empty `clipsHistory.json` if either is missing. No user-facing prompt.
 
@@ -85,6 +85,8 @@ Default visible columns: Title · Type · Last Saved · Belongs To · Related To
 - JSON clips with `file_path` → uses metadata cache to find the heading by line number. The extension saves headings as `## [Title](url)`; the cache stores this as `[Title](url)` so matching strips markdown link syntax before comparing against `entry.title`. Falls back to opening file at top if no match.
 - Frontmatter entries → opens the file directly (no heading lookup — the file itself is the content)
 - No `file_path` → `openLinkText` with the title (fuzzy vault search)
+
+**Missing file handling:** JSON entries with a `file_path` that no longer exists in the vault are dropped from the dashboard entirely (not shown, not fallen back to URL). Handled in `mergeEntries` via `flatMap` — returns `[]` when `getAbstractFileByPath` returns null.
 
 ### Tabs
 
@@ -382,7 +384,7 @@ app.plugins.disablePlugin('quickclip-organize').then(() => app.plugins.enablePlu
 
 ### Automated review checks (community.obsidian.md)
 
-- Run against a specific tag via "Review branch" → enter tag (e.g. `1.0.1`)
+- Run against a specific tag via "Review branch" → enter tag (e.g. `1.0.2`)
 - **Warnings to expect** (not blockers):
   - Artifact attestations for `main.js` / `styles.css` — optional, skip
   - Vault enumeration (`vault.getMarkdownFiles`) — expected, documented in README
