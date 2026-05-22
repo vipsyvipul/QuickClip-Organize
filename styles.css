@@ -249,30 +249,30 @@
 }
 
 /* Override Obsidian's default input[type="text"] box styling */
-input.qc-wikilink-input {
-    background: transparent !important;
-    border: none !important;
-    border-bottom: 1px solid transparent !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
+.qc-container input.qc-wikilink-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    box-shadow: none;
     color: var(--text-normal);
     flex-basis: 100%;
     font-size: var(--font-ui-small);
     height: auto;
     min-width: 60px;
-    outline: none !important;
+    outline: none;
     padding: 2px 4px;
     width: 100%;
 }
 
-input.qc-wikilink-input::placeholder {
+.qc-container input.qc-wikilink-input::placeholder {
     color: var(--text-faint);
 }
 
-input.qc-wikilink-input:focus {
-    border-bottom-color: var(--interactive-accent) !important;
-    box-shadow: none !important;
-    outline: none !important;
+.qc-container input.qc-wikilink-input:focus {
+    border-bottom-color: var(--interactive-accent);
+    box-shadow: none;
+    outline: none;
 }
 
 /* ── Empty state ── */
@@ -293,8 +293,8 @@ input.qc-wikilink-input:focus {
 }
 
 .qc-upsell {
-    font-size: var(--font-ui-small) !important;
-    color: var(--text-faint) !important;
+    font-size: var(--font-ui-small);
+    color: var(--text-faint);
 }
 
 .qc-upsell a {
