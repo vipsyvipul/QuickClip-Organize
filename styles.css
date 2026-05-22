@@ -137,7 +137,8 @@
     color: var(--text-muted);
 }
 
-.qc-cell--organized {
+.qc-cell--organized,
+.qc-cell--archive {
     text-align: center;
 }
 

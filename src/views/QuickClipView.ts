@@ -9,7 +9,7 @@ type SortDir = 'asc' | 'desc'
 
 type ColumnKey =
     | 'domain' | 'type' | 'tags' | 'last_clipped' | 'clip_count' | 'content_type' | 'first_clipped' | 'url' | 'source'
-    | 'belongs_to' | 'related_to' | 'organized' | 'progress'
+    | 'belongs_to' | 'related_to' | 'organized' | 'progress' | 'archived'
 interface ColumnDef { key: ColumnKey; label: string; sortKey?: SortKey; alwaysVisible?: boolean }
 
 const ALL_COLUMNS: ColumnDef[] = [
@@ -26,6 +26,7 @@ const ALL_COLUMNS: ColumnDef[] = [
     { key: 'related_to',    label: 'Related To',     alwaysVisible: true },
     { key: 'organized',     label: 'Organized',      sortKey: 'organized', alwaysVisible: true },
     { key: 'progress',      label: 'Progress',       alwaysVisible: true },
+    { key: 'archived',      label: 'Archive' },
 ]
 
 export class QuickClipView extends ItemView {
@@ -46,6 +47,7 @@ export class QuickClipView extends ItemView {
     private filterClearBtn!: HTMLElement
     private suggestDropdowns: HTMLElement[] = []
     private colPickerClose: (() => void) | null = null
+    private showOrganizedLabel!: HTMLLabelElement
 
     constructor(leaf: WorkspaceLeaf, plugin: QuickClipPlugin) {
         super(leaf)
@@ -101,6 +103,7 @@ export class QuickClipView extends ItemView {
             { key: 'all' as const, label: 'All Clips' },
             { key: 'domain' as const, label: 'By Domain' },
             { key: 'type' as const, label: 'By Type' },
+            { key: 'archived' as const, label: 'Archived' },
         ]
         const btns: HTMLButtonElement[] = []
         for (const tab of tabs) {
@@ -114,7 +117,9 @@ export class QuickClipView extends ItemView {
                 this.plugin.settings.activeTab = tab.key
                 await this.plugin.saveSettings()
                 btns.forEach((b, i) => b.toggleClass('qc-tab--active', tabs[i].key === tab.key))
-                this.collapseAllLabel.style.display = tab.key === 'all' ? 'none' : ''
+                const isGrouped = tab.key === 'domain' || tab.key === 'type'
+                this.collapseAllLabel.style.display = isGrouped ? '' : 'none'
+                this.showOrganizedLabel.style.display = tab.key === 'archived' ? 'none' : ''
                 this.collapseAllCb.checked = false
                 this.rerenderContent()
             })
@@ -122,10 +127,11 @@ export class QuickClipView extends ItemView {
 
         const toggleGroup = toolbar.createDiv('qc-toggle-group')
 
-        const toggle = toggleGroup.createEl('label', { cls: 'qc-toggle' })
-        const cb = toggle.createEl('input', { type: 'checkbox' })
+        this.showOrganizedLabel = toggleGroup.createEl('label', { cls: 'qc-toggle' })
+        this.showOrganizedLabel.style.display = this.plugin.settings.activeTab === 'archived' ? 'none' : ''
+        const cb = this.showOrganizedLabel.createEl('input', { type: 'checkbox' })
         cb.checked = this.plugin.settings.showOrganized
-        toggle.appendText(' Show organized')
+        this.showOrganizedLabel.appendText(' Show organized')
         cb.addEventListener('change', async () => {
             this.plugin.settings.showOrganized = cb.checked
             await this.plugin.saveSettings()
@@ -133,7 +139,8 @@ export class QuickClipView extends ItemView {
         })
 
         this.collapseAllLabel = toggleGroup.createEl('label', { cls: 'qc-toggle' })
-        this.collapseAllLabel.style.display = this.plugin.settings.activeTab === 'all' ? 'none' : ''
+        const isGroupedTab = this.plugin.settings.activeTab === 'domain' || this.plugin.settings.activeTab === 'type'
+        this.collapseAllLabel.style.display = isGroupedTab ? '' : 'none'
         this.collapseAllCb = this.collapseAllLabel.createEl('input', { type: 'checkbox' })
         this.collapseAllLabel.appendText(' Collapse all')
         this.collapseAllCb.addEventListener('change', () => {
@@ -290,6 +297,23 @@ export class QuickClipView extends ItemView {
         this.suggestDropdowns = []
         this.qcContentEl.empty()
         const s = this.plugin.settings
+
+        if (s.activeTab === 'archived') {
+            const filtered = this.entries.filter((e) => {
+                if (!e.archived) return false
+                if (s.filterType && e.type !== s.filterType) return false
+                if (s.filterProgress && getProgressState(e) !== s.filterProgress) return false
+                if (s.filterContentType && e.content_type !== s.filterContentType) return false
+                if (s.filterDate) {
+                    const cutoff = getDateCutoff(s.filterDate)
+                    if (cutoff && new Date(e.last_clipped) < cutoff) return false
+                }
+                return true
+            })
+            this.renderArchived(filtered)
+            return
+        }
+
         const filtered = this.entries.filter((e) => {
             if (e.archived) return false
             if (!s.showOrganized && e.organized) return false
@@ -302,7 +326,7 @@ export class QuickClipView extends ItemView {
             }
             return true
         })
-        switch (this.plugin.settings.activeTab) {
+        switch (s.activeTab) {
             case 'all': this.renderAllClips(filtered); break
             case 'domain': this.renderByDomain(filtered); break
             case 'type': this.renderByType(filtered); break
@@ -403,6 +427,30 @@ export class QuickClipView extends ItemView {
 
         const tbody = table.createEl('tbody')
         for (const entry of sorted) this.renderRow(tbody, entry, orderedCols)
+    }
+
+    private renderArchived(entries: ClipEntry[]) {
+        this.currentGroupKeys = []
+        const sorted = [...entries].sort((a, b) => this.compareEntries(a, b))
+        if (!sorted.length) {
+            const empty = this.qcContentEl.createDiv('qc-empty-state')
+            empty.createEl('p', { text: 'No archived clips.' })
+            return
+        }
+
+        const orderedCols = this.getOrderedColumns()
+        const table = this.qcContentEl.createEl('table', { cls: 'qc-table' })
+        const thead = table.createEl('thead')
+        const headerRow = thead.createEl('tr')
+
+        this.addSortableHeader(headerRow, 'Title', 'title')
+        for (const col of orderedCols) {
+            if (!this.isColVisible(col) && col.key !== 'archived') continue
+            this.addDraggableHeader(headerRow, col)
+        }
+
+        const tbody = table.createEl('tbody')
+        for (const entry of sorted) this.renderRow(tbody, entry, orderedCols, true)
     }
 
     private compareEntries(a: ClipEntry, b: ClipEntry): number {
@@ -509,7 +557,7 @@ export class QuickClipView extends ItemView {
         }
     }
 
-    private renderRow(tbody: HTMLElement, entry: ClipEntry, orderedCols: ColumnDef[]): HTMLElement {
+    private renderRow(tbody: HTMLElement, entry: ClipEntry, orderedCols: ColumnDef[], inArchivedTab = false): HTMLElement {
         const tr = tbody.createEl('tr', { cls: 'qc-row' })
 
         // Title — always first, never in orderedCols loop
@@ -524,7 +572,7 @@ export class QuickClipView extends ItemView {
         let progressDots: HTMLElement | null = null
 
         for (const col of orderedCols) {
-            if (!this.isColVisible(col)) continue
+            if (!this.isColVisible(col) && !(inArchivedTab && col.key === 'archived')) continue
             const td = tr.createEl('td', { cls: 'qc-cell' })
             switch (col.key) {
                 case 'domain':
@@ -616,6 +664,17 @@ export class QuickClipView extends ItemView {
                     progressDots.createSpan({ cls: 'qc-progress-dot qc-progress-dot--amber' })
                     progressDots.createSpan({ cls: 'qc-progress-dot qc-progress-dot--green' })
                     break
+                case 'archived': {
+                    td.addClass('qc-cell--archive')
+                    const archiveCb = td.createEl('input', { type: 'checkbox' })
+                    archiveCb.checked = entry.archived
+                    archiveCb.addEventListener('change', async () => {
+                        await this.plugin.updateEntry(entry, { archived: archiveCb.checked })
+                        entry.archived = archiveCb.checked
+                        this.rerenderContent()
+                    })
+                    break
+                }
             }
         }
 

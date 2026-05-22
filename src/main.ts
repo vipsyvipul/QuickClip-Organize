@@ -6,7 +6,7 @@ import { QuickClipView, VIEW_MAIN } from './views/QuickClipView'
 
 interface PluginSettings {
     showOrganized: boolean
-    activeTab: 'all' | 'domain' | 'type'
+    activeTab: 'all' | 'domain' | 'type' | 'archived'
     visibleColumns: string[]
     columnOrder: string[]
     filterType: string
@@ -18,7 +18,7 @@ interface PluginSettings {
 const DEFAULT_SETTINGS: PluginSettings = {
     showOrganized: false,
     activeTab: 'all',
-    visibleColumns: ['type', 'last_clipped'],
+    visibleColumns: ['type', 'last_clipped', 'archived'],
     columnOrder: [],
     filterType: '',
     filterProgress: '',
