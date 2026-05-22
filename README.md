@@ -1,4 +1,4 @@
-#QuickClip Organize
+# QuickClip Organize
 
 A Portent-based dashboard to classify, connect, and track every note through its lifecycle — from raw capture to organized knowledge. Works with any Obsidian note; enhanced with the [QuickClip Chrome extension](#with-the-quickclip-extension).
 
