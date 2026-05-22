@@ -19,7 +19,7 @@ async function readIndex(app: App): Promise<Record<string, any>> {
 export async function loadJsonEntries(app: App): Promise<ClipEntry[]> {
     const index = await readIndex(app)
     return Object.entries(index).map(([url, entry]: [string, any]) => {
-        const clips: any[] = entry.clips || []
+        const clips: any[] = Array.isArray(entry.clips) ? entry.clips : []
         const tags = Array.from(new Set(
             clips.flatMap((c: any) => c.tags || [])
         )) as string[]

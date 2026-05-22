@@ -559,7 +559,13 @@ export class QuickClipView extends ItemView {
                 case 'url':
                     if (entry.url) {
                         const link = td.createEl('a', { cls: 'qc-url-link', text: '↗' })
-                        link.addEventListener('click', (e) => { e.preventDefault(); window.open(entry.url, '_blank') })
+                        link.addEventListener('click', (e) => {
+                            e.preventDefault()
+                            try {
+                                const parsed = new URL(entry.url)
+                                if (parsed.protocol === 'https:' || parsed.protocol === 'http:') window.open(entry.url, '_blank')
+                            } catch { /* invalid URL */ }
+                        })
                     }
                     break
                 case 'source':
