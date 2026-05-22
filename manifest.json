@@ -3,8 +3,8 @@
   "name": "QuickClip Organize",
   "version": "1.0.0",
   "minAppVersion": "1.0.0",
-  "description": "Organize and archive your QuickClip web captures using the Portent framework.",
+  "description": "A Portent-based dashboard to classify, connect, and track every note through its lifecycle — from raw capture to organized knowledge. Works with any note; enhanced with the QuickClip extension.",
   "author": "Vipul Bansal",
-  "authorUrl": "",
+  "authorUrl": "https://github.com/vipsyvipul/",
   "isDesktopOnly": false
 }
