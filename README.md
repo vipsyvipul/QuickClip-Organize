@@ -1,6 +1,8 @@
-# QuickClip Organize
+#QuickClip Organize
 
 A Portent-based dashboard to classify, connect, and track every note through its lifecycle — from raw capture to organized knowledge. Works with any Obsidian note; enhanced with the [QuickClip Chrome extension](#with-the-quickclip-extension).
+
+Read more about Portent [here](https://portent.md/). 
 
 ---
 
@@ -8,7 +10,7 @@ A Portent-based dashboard to classify, connect, and track every note through its
 
 Capturing is easy. Processing is hard.
 
-Web clips, research notes, and saved articles pile up — unclassified, unconnected, competing for attention indefinitely. QuickClip Organize gives you a single dashboard to triage that pile: classify what each thing *is*, connect it to where it *belongs*, and track what's been dealt with versus what still needs attention.
+Web clips, research notes, and saved articles pile up — unclassified, unconnected, competing for attention indefinitely. **QuickClip Organize** gives you a single dashboard to triage that pile: classify what each thing *is*, connect it to where it *belongs*, and track what's been dealt with versus what still needs attention.
 
 ---
 
@@ -106,7 +108,7 @@ Each entry moves through three states, visible as a dot indicator:
 | **Planning** ● ● ○ | Type set + Related To filled, no Belongs To | Connected to known things, not yet placed |
 | **Organized** ● ● ● | Type set + Belongs To filled | Placed in its home — feeds active work |
 
-**Organized** (the checkbox) flips automatically when an entry has both a type and a valid Belongs To link. You never set it manually.
+**Organized** (the checkbox) flips automatically when an entry has both a type and a valid Belongs To link. You never set it manually inside the dashboard.
 
 ---
 
@@ -134,8 +136,6 @@ Filters are persistent across sessions and combine with AND logic.
 ## Archiving vs. deleting
 
 **Archive** hides an entry from all active views — it moves to the Archived tab. The note and its content are untouched.
-
-**Delete** means the thing should not exist. Archive means it should no longer compete for attention.
 
 Use Archive for: completed research, finished projects, sources you've fully processed, anything you want out of your active views but may want to reference later.
 
@@ -179,12 +179,6 @@ The full classify → connect → track → archive workflow works entirely from
 - **Belongs To** is the key action. Once filled, the entry is organized and drops out of your default view.
 - **Related To** without Belongs To = Planning state. Use it to signal "I know this connects to things, but I haven't placed it yet."
 - **Archive aggressively.** If you've processed something and it's no longer competing for attention, archive it. Your active view should only show what matters now.
-
----
-
-## Portent framework
-
-This plugin implements the [Portent](https://portent.so) knowledge framework — a typed object model for Obsidian that treats notes as structured objects with lifecycle states rather than flat documents.
 
 ---
 
