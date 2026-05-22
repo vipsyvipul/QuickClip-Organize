@@ -375,15 +375,23 @@ app.plugins.disablePlugin('quickclip-organize').then(() => app.plugins.enablePlu
 ## Submission
 
 1. Public GitHub repo with `main.js`, `manifest.json`, `styles.css` as release assets tagged with version
-2. Fork `obsidianmd/obsidian-releases`, add entry to `community-plugins.json`, open PR
+2. Submit via **community.obsidian.md** (not GitHub PRs — `obsidian-releases` has PRs disabled)
 3. Review: 1–4 weeks. Future updates = new GitHub releases only, no re-submission
 
-```json
-{
-  "id": "quickclip-organize",
-  "name": "QuickClip Organize",
-  "author": "Vipul Bansal",
-  "description": "Organize and archive your QuickClip web captures inside Obsidian.",
-  "repo": "yourgithub/QuickClip-Plugin-OBS"
-}
-```
+**Repo:** `https://github.com/vipsyvipul/QuickClip-Organize`
+
+### Automated review checks (community.obsidian.md)
+
+- Run against a specific tag via "Review branch" → enter tag (e.g. `1.0.1`)
+- **Warnings to expect** (not blockers):
+  - Artifact attestations for `main.js` / `styles.css` — optional, skip
+  - Vault enumeration (`vault.getMarkdownFiles`) — expected, documented in README
+- **Warnings already fixed:**
+  - `builtin-modules` replaced with Node.js built-in `module` API in `esbuild.config.mjs`
+  - `!important` removed from `styles.css` — replaced with `.qc-container` selector specificity
+
+### Developer policies checklist
+- No obfuscated code, ads, telemetry, or self-update mechanism
+- No remote service connections — local vault files only
+- MIT LICENSE file included
+- Vault enumeration disclosed in README under "Vault access" section
